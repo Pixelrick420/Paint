@@ -6,6 +6,7 @@
 #include <iostream>
 #include <windows.h>
 #include <deque>
+#include <cmath>
 
 struct Color
 {
@@ -14,8 +15,7 @@ struct Color
 
 struct Slider
 {
-    int x, y;
-    int value;
+    int x, y, value;
 };
 
 class PaintApp
@@ -24,7 +24,7 @@ private:
     static constexpr int NUM_COLORS = 8;
     static constexpr int SCREEN_HEIGHT = 720;
     static constexpr int SCREEN_WIDTH = 1280;
-    static constexpr int POINT_THRESHOLD = 500;
+    static constexpr int POINT_THRESHOLD = 100000;
     static constexpr int MENU_HEIGHT = 112;
     static constexpr int MENU_WIDTH = 350;
     static constexpr int TOOL_WIDTH = 50;
@@ -43,35 +43,28 @@ private:
 
     SDL_Window *window;
     SDL_Renderer *renderer;
-    std::deque<SDL_Point> points[NUM_COLORS];
+    std::deque<SDL_Point> points;
+    std::vector<Slider> sliders = {
+        {8, 961, 0},  // r
+        {24, 961, 0}, // g
+        {40, 961, 0}, // b
+        {76, 961, 0}  // size
+    };
 
     int startX{0}, startY{0}, endX{0}, endY{0};
-    int color{0};
+    Color color{0, 0, 0};
     int mode{0}; // 0 = not clicked, 1 = using tool
     int tool{1}; // Current tool: 1=pencil, 2=eraser, 3=line, 4=circle, 5=rectangle
     int thickness{2};
     bool quit{false};
+    SDL_Point shapeStart = {-1, -1};
 
     void drawPoint(int x, int y)
     {
-        if (x >= 0 && x < SCREEN_WIDTH && y >= 0 && y < SCREEN_HEIGHT)
+        points.push_back({x, y});
+        if (points.size() > POINT_THRESHOLD)
         {
-            if (tool == 2) // Eraser
-            {
-                points[7].push_back({x, y});
-                if (points[7].size() > POINT_THRESHOLD)
-                {
-                    points[7].pop_front();
-                }
-            }
-            else
-            {
-                points[color].push_back({x, y});
-                if (points[color].size() > POINT_THRESHOLD)
-                {
-                    points[color].pop_front();
-                }
-            }
+            points.pop_front();
         }
     }
 
@@ -108,6 +101,70 @@ private:
         }
     }
 
+    void drawCircle(int cx, int cy, int x, int y)
+    {
+        int radius = (int)std::sqrt((cx - x) * (cx - x) + (cy - y) * (cy - y));
+        int radiusSq = radius * radius, circleThickness = thickness * 2;
+        for (int dx = -radius - circleThickness; dx <= radius + circleThickness; dx++)
+        {
+            for (int dy = -radius - circleThickness; dy <= radius + circleThickness; dy++)
+            {
+                int curx = cx + dx;
+                int cury = cy + dy;
+
+                if (curx >= 0 && curx < SCREEN_WIDTH &&
+                    cury >= MENU_HEIGHT + 20 && cury < SCREEN_HEIGHT)
+                {
+                    int distSq = dx * dx + dy * dy;
+                    if (abs(distSq - radiusSq) <= circleThickness * radius)
+                    {
+                        drawPoint(curx, cury);
+                    }
+                }
+            }
+        }
+    }
+
+    void drawRectangle(int x1, int y1, int x2, int y2)
+    {
+        int left = std::min(x1, x2);
+        int right = std::max(x1, x2);
+        int top = std::min(y1, y2);
+        int bottom = std::max(y1, y2);
+
+        for (int x = left - thickness; x <= right + thickness; x++)
+        {
+            if (x >= 0 && x < SCREEN_WIDTH)
+            {
+                for (int t = -thickness; t <= thickness; t++)
+                {
+                    int y1_t = top + t;
+                    int y2_t = bottom + t;
+                    if (y1_t >= MENU_HEIGHT + 20 && y1_t < SCREEN_HEIGHT)
+                        drawPoint(x, y1_t);
+                    if (y2_t >= MENU_HEIGHT + 20 && y2_t < SCREEN_HEIGHT)
+                        drawPoint(x, y2_t);
+                }
+            }
+        }
+
+        for (int y = top - thickness; y <= bottom + thickness; y++)
+        {
+            if (y >= MENU_HEIGHT + 20 && y < SCREEN_HEIGHT)
+            {
+                for (int t = -thickness; t <= thickness; t++)
+                {
+                    int x1_t = left + t;
+                    int x2_t = right + t;
+                    if (x1_t >= 0 && x1_t < SCREEN_WIDTH)
+                        drawPoint(x1_t, y);
+                    if (x2_t >= 0 && x2_t < SCREEN_WIDTH)
+                        drawPoint(x2_t, y);
+                }
+            }
+        }
+    }
+
     void setCursor(int type)
     {
         const char *cursorFile = nullptr;
@@ -126,7 +183,7 @@ private:
             SDL_SetCursor(SDL_GetDefaultCursor());
             return;
         }
-        int cursorSize = thickness + 10;
+        int cursorSize = thickness * 3;
         SDL_Surface *cursorSurface = SDL_LoadBMP(cursorFile);
         SDL_Cursor *cursor = nullptr;
         if (tool == 2)
@@ -155,6 +212,7 @@ private:
             {
             case 0:
                 tool = 1;
+                color = colors[0];
                 setCursor(0);
                 break; // Pencil
             case 1:
@@ -166,16 +224,16 @@ private:
                 setCursor(1);
                 break; // Rectangle
             case 3:
-                color = 0;
+                color = colors[0];
                 break;
             case 4:
-                color = 2;
+                color = colors[2];
                 break;
             case 5:
-                color = 4;
+                color = colors[4];
                 break;
             case 6:
-                color = 6;
+                color = colors[6];
                 break;
             }
         }
@@ -185,6 +243,7 @@ private:
             {
             case 0:
                 tool = 2;
+                color = colors[7];
                 setCursor(2);
                 break; // Eraser
             case 1:
@@ -195,17 +254,42 @@ private:
                 printHelp();
                 break; // Help
             case 3:
-                color = 1;
+                color = colors[1];
                 break;
             case 4:
-                color = 3;
+                color = colors[3];
                 break;
             case 5:
-                color = 5;
+                color = colors[5];
                 break;
             case 6:
-                color = 7;
+                color = colors[7];
                 break;
+            }
+        }
+    }
+
+    void drawSliders()
+    {
+        std::ifstream file("Slider.bin", std::ios::binary);
+        int width = 16, height = 15;
+        std::vector<uint8_t> pixels(width * height);
+
+        if (file.read(reinterpret_cast<char *>(pixels.data()), pixels.size()))
+        {
+            for (const Slider &slider : sliders)
+            {
+                for (int i = 0; i < height; ++i)
+                {
+                    for (int j = 0; j < width; ++j)
+                    {
+                        uint8_t value = pixels[i * width + j];
+                        int pixel = (value >> 5) & 0x07;
+                        const auto &col = colors[pixel];
+                        SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, 255);
+                        SDL_RenderDrawPoint(renderer, j + slider.y, i + slider.x);
+                    }
+                }
             }
         }
     }
@@ -229,6 +313,7 @@ private:
                 }
             }
         }
+        // drawSliders();
     }
 
 public:
@@ -249,31 +334,30 @@ public:
 
     void clearScreen()
     {
-        for (auto &pointSet : points)
-        {
-            pointSet.clear();
-        }
-        color = 0;
+        points.clear();
+        color = {0, 0, 0};
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderClear(renderer);
+        setCursor(0);
         drawOverlay();
+        mode = 0;
+        tool = 1;
+        thickness = 2;
+        shapeStart = {-1, -1};
     }
 
     void drawScreen()
     {
-        for (int i = 0; i < NUM_COLORS; ++i)
+        if (!points.empty())
         {
-            if (!points[i].empty())
+            SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, 255);
+            size_t startIdx = points.size() > POINT_THRESHOLD ? points.size() - POINT_THRESHOLD : 0;
+            for (size_t i = startIdx; i < points.size(); ++i)
             {
-                const auto &col = colors[i];
-                SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, 255);
-                size_t startIdx = points[i].size() > POINT_THRESHOLD ? points[i].size() - POINT_THRESHOLD : 0;
-                for (size_t j = startIdx; j < points[i].size(); ++j)
-                {
-                    SDL_RenderDrawPoint(renderer, points[i][j].x, points[i][j].y);
-                }
+                SDL_RenderDrawPoint(renderer, points[i].x, points[i].y);
             }
         }
+        points.clear();
         SDL_RenderPresent(renderer);
     }
 
@@ -299,6 +383,29 @@ public:
                 {
                     mode = 1;
                     drawPoint(startX, startY);
+                    if (tool >= 2 && tool <= 5)
+                    {
+                        if (shapeStart.x != -1)
+                        {
+                            switch (tool)
+                            {
+                            case 3:
+                                drawLine(shapeStart.x, shapeStart.y, startX, startY);
+                                break;
+                            case 4:
+                                drawCircle(shapeStart.x, shapeStart.y, startX, startY);
+                                break;
+                            case 5:
+                                drawRectangle(shapeStart.x, shapeStart.y, startX, startY);
+                                break;
+                            }
+                            shapeStart = {-1, -1};
+                        }
+                        else
+                        {
+                            shapeStart = {startX, startY};
+                        }
+                    }
                 }
                 break;
 
@@ -307,18 +414,15 @@ public:
                 break;
 
             case SDL_MOUSEMOTION:
-                if (mode == 1 && startY >= MENU_HEIGHT + 20)
+                if (mode == 1 && tool <= 2 && startY >= MENU_HEIGHT + 20)
                 {
                     endX = e.motion.x;
                     endY = e.motion.y;
                     if (endY >= MENU_HEIGHT + 20)
                     {
-                        if (tool == 1 || tool == 2) // Pencil tool
-                        {
-                            drawLine(startX, startY, endX, endY);
-                            startX = endX;
-                            startY = endY;
-                        }
+                        drawLine(startX, startY, endX, endY);
+                        startX = endX;
+                        startY = endY;
                     }
                 }
                 break;
@@ -326,15 +430,19 @@ public:
             case SDL_KEYDOWN:
                 if (e.key.keysym.sym >= SDLK_1 && e.key.keysym.sym <= SDLK_7)
                 {
-                    color = e.key.keysym.sym - SDLK_1;
+                    color = colors[e.key.keysym.sym - SDLK_1];
                 }
-                else if (e.key.keysym.sym == SDLK_c)
+                switch (e.key.keysym.sym)
                 {
+                case SDLK_c:
                     clearScreen();
-                }
-                else if (e.key.keysym.sym == SDLK_d)
-                {
-                    tool = 1; // Pencil tool
+                    break;
+                case SDLK_z:
+                    thickness++;
+                    break;
+                case SDLK_x:
+                    thickness--;
+                    break;
                 }
                 break;
             }
