@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <windows.h>
+#include <deque>
 
 struct Color
 {
@@ -42,11 +43,12 @@ private:
 
     SDL_Window *window;
     SDL_Renderer *renderer;
-    std::vector<SDL_Point> points[NUM_COLORS];
+    std::deque<SDL_Point> points[NUM_COLORS];
 
     int startX{0}, startY{0}, endX{0}, endY{0};
     int color{0};
-    int mode{0}; // 0=idle, 1=drawing, 2=erasing, 3=line, 4=circle, 5=rectangle
+    int mode{0}; // 0 = not clicked, 1 = using tool
+    int tool{1}; // Current tool: 1=pencil, 2=eraser, 3=line, 4=circle, 5=rectangle
     int thickness{2};
     bool quit{false};
 
@@ -54,7 +56,22 @@ private:
     {
         if (x >= 0 && x < SCREEN_WIDTH && y >= 0 && y < SCREEN_HEIGHT)
         {
-            points[color].push_back({x, y});
+            if (tool == 2) // Eraser
+            {
+                points[7].push_back({x, y});
+                if (points[7].size() > POINT_THRESHOLD)
+                {
+                    points[7].pop_front();
+                }
+            }
+            else
+            {
+                points[color].push_back({x, y});
+                if (points[color].size() > POINT_THRESHOLD)
+                {
+                    points[color].pop_front();
+                }
+            }
         }
     }
 
@@ -109,15 +126,25 @@ private:
             SDL_SetCursor(SDL_GetDefaultCursor());
             return;
         }
-
-        if (SDL_Surface *cursorSurface = SDL_LoadBMP(cursorFile))
+        int cursorSize = thickness + 10;
+        SDL_Surface *cursorSurface = SDL_LoadBMP(cursorFile);
+        SDL_Cursor *cursor = nullptr;
+        if (tool == 2)
         {
-            if (SDL_Cursor *cursor = SDL_CreateColorCursor(cursorSurface, 0, cursorSurface->h - 1))
-            {
-                SDL_SetCursor(cursor);
-            }
-            SDL_FreeSurface(cursorSurface);
+            SDL_Surface *scaledSurface = SDL_CreateRGBSurfaceWithFormat(
+                0, cursorSize, cursorSize, 32, SDL_PIXELFORMAT_RGBA32);
+            SDL_Rect srcRect = {0, 0, cursorSurface->w, cursorSurface->h};
+            SDL_Rect dstRect = {0, 0, cursorSize, cursorSize};
+            SDL_BlitScaled(cursorSurface, &srcRect, scaledSurface, &dstRect);
+            cursor = SDL_CreateColorCursor(scaledSurface, cursorSize / 2, cursorSize / 2);
+            SDL_FreeSurface(scaledSurface);
         }
+        else
+        {
+            cursor = SDL_CreateColorCursor(cursorSurface, 0, cursorSurface->h - 1);
+        }
+        SDL_SetCursor(cursor);
+        SDL_FreeSurface(cursorSurface);
     }
 
     void handleToolSelection(int row, int col)
@@ -127,15 +154,15 @@ private:
             switch (col)
             {
             case 0:
-                mode = 1;
+                tool = 1;
                 setCursor(0);
                 break; // Pencil
             case 1:
-                mode = 3;
+                tool = 3;
                 setCursor(1);
                 break; // Line
             case 2:
-                mode = 5;
+                tool = 5;
                 setCursor(1);
                 break; // Rectangle
             case 3:
@@ -157,15 +184,14 @@ private:
             switch (col)
             {
             case 0:
-                mode = 2;
-                setCursor(3);
+                tool = 2;
+                setCursor(2);
                 break; // Eraser
             case 1:
-                mode = 4;
+                tool = 4;
                 setCursor(1);
                 break; // Circle
             case 2:
-                mode = 0;
                 printHelp();
                 break; // Help
             case 3:
@@ -271,20 +297,8 @@ public:
                 }
                 else
                 {
-                    switch (mode)
-                    {
-                    case 0: // pencil
-                        mode = 1;
-                        drawPoint(startX, startY);
-                        break;
-                    case 1: // eraser
-                        mode = 1;
-                        color = 7;
-                        drawPoint(startX, startY);
-                        break;
-                    case 2:
-                        break;
-                    }
+                    mode = 1;
+                    drawPoint(startX, startY);
                 }
                 break;
 
@@ -299,9 +313,12 @@ public:
                     endY = e.motion.y;
                     if (endY >= MENU_HEIGHT + 20)
                     {
-                        drawLine(startX, startY, endX, endY);
-                        startX = endX;
-                        startY = endY;
+                        if (tool == 1 || tool == 2) // Pencil tool
+                        {
+                            drawLine(startX, startY, endX, endY);
+                            startX = endX;
+                            startY = endY;
+                        }
                     }
                 }
                 break;
@@ -317,7 +334,7 @@ public:
                 }
                 else if (e.key.keysym.sym == SDLK_d)
                 {
-                    mode = 1;
+                    tool = 1; // Pencil tool
                 }
                 break;
             }
