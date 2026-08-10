@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SDL_VERSION: 2.32.10
+      SDL_SHA256: 5f0f1ee51d5615aaf7bcebd5b68ef4babfb4a5d63d04fda177cbb2c4a9f10afa
 
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +24,24 @@ jobs:
 
       - name: Build static SDL2
         run: |
-          curl -fL "https://github.com/libsdl-org/SDL/releases/download/release-${SDL_VERSION}/SDL2-${SDL_VERSION}.tar.gz" -o sdl2.tar.gz
+          sources=(
+            "https://libsdl.org/release/SDL2-${SDL_VERSION}.tar.gz"
+            "https://github.com/libsdl-org/SDL/releases/download/release-${SDL_VERSION}/SDL2-${SDL_VERSION}.tar.gz"
+          )
+          for url in "${sources[@]}"; do
+            rm -f sdl2.tar.gz
+            echo "Downloading SDL2 from $url"
+            curl -fL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 15 \
+              "$url" -o sdl2.tar.gz || continue
+            if echo "$SDL_SHA256  sdl2.tar.gz" | sha256sum -c - >/dev/null; then
+              echo "Download OK from $url"
+              break
+            else
+              echo "Checksum mismatch from $url, trying next source"
+              rm -f sdl2.tar.gz
+            fi
+          done
+          test -s sdl2.tar.gz || { echo "::error::could not download SDL2 from any source"; exit 1; }
           tar xzf sdl2.tar.gz
           cmake -S "SDL2-${SDL_VERSION}" -B build-sdl -G Ninja \
             -DSDL_STATIC=ON -DSDL_SHARED=OFF \
@@ -34,11 +52,15 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/sdl-prefix"
           cmake --build build-sdl --target install
+          test -f "$GITHUB_WORKSPACE/sdl-prefix/include/SDL2/SDL.h"
+          test -f "$GITHUB_WORKSPACE/sdl-prefix/lib/pkgconfig/sdl2.pc"
 
       - name: Compile paint (static SDL)
         run: |
+          test -f "$GITHUB_WORKSPACE/sdl-prefix/lib/pkgconfig/sdl2.pc"
+          export PKG_CONFIG_PATH="$GITHUB_WORKSPACE/sdl-prefix/lib/pkgconfig"
           g++ -std=c++17 -O2 -o paint paint.cpp \
-            $("$GITHUB_WORKSPACE/sdl-prefix/bin/sdl2-config" --cflags --static-libs)
+            $(pkg-config --static --cflags --libs sdl2)
 
       - name: Verify no SDL runtime dependency
         run: |

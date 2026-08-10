@@ -347,6 +347,10 @@ public:
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
         if (renderer == nullptr)
         {
+            renderer = SDL_CreateRenderer(window, -1, 0);
+        }
+        if (renderer == nullptr)
+        {
             std::cerr << "SDL_CreateRenderer failed: " << SDL_GetError() << std::endl;
             std::exit(1);
         }
