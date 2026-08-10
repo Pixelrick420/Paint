@@ -1,0 +1,6 @@
+graphify-out/
+paint
+*.o
+AGENTS.md
+.agents-md.sha256
+.gitattributes

@@ -4,9 +4,26 @@
 #include <string>
 #include <fstream>
 #include <iostream>
-#include <windows.h>
 #include <deque>
 #include <cmath>
+#include <unistd.h>
+#include <cstdlib>
+
+static std::string assetPath(const std::string &name)
+{
+    std::string base = "assets";
+    char buf[4096];
+    ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+    if (len > 0)
+    {
+        buf[len] = '\0';
+        std::string exePath(buf);
+        std::string::size_type slash = exePath.find_last_of('/');
+        if (slash != std::string::npos)
+            base = exePath.substr(0, slash) + "/assets";
+    }
+    return base + "/" + name;
+}
 
 struct Color
 {
@@ -26,7 +43,6 @@ private:
     static constexpr int SCREEN_WIDTH = 1280;
     static constexpr int POINT_THRESHOLD = 100000;
     static constexpr int MENU_HEIGHT = 112;
-    static constexpr int MENU_WIDTH = 350;
     static constexpr int TOOL_WIDTH = 50;
     static constexpr int ROW_HEIGHT = 56;
 
@@ -167,26 +183,30 @@ private:
 
     void setCursor(int type)
     {
-        const char *cursorFile = nullptr;
+        std::string cursorFile;
         switch (type)
         {
         case 0:
-            cursorFile = "pencil.bmp";
+            cursorFile = assetPath("pencil.bmp");
             break;
         case 1:
-            cursorFile = "point.bmp";
+            cursorFile = assetPath("point.bmp");
             break;
         case 2:
-            cursorFile = "eraser.bmp";
+            cursorFile = assetPath("eraser.bmp");
             break;
         default:
             SDL_SetCursor(SDL_GetDefaultCursor());
             return;
         }
         int cursorSize = thickness * 3;
-        SDL_Surface *cursorSurface = SDL_LoadBMP(cursorFile);
+        SDL_Surface *cursorSurface = SDL_LoadBMP(cursorFile.c_str());
+        if (cursorSurface == nullptr)
+        {
+            return; // asset missing - keep the default cursor
+        }
         SDL_Cursor *cursor = nullptr;
-        if (tool == 2)
+        if (type == 2)
         {
             SDL_Surface *scaledSurface = SDL_CreateRGBSurfaceWithFormat(
                 0, cursorSize, cursorSize, 32, SDL_PIXELFORMAT_RGBA32);
@@ -269,9 +289,23 @@ private:
         }
     }
 
+    void drawPalettePixels(const std::vector<uint8_t> &pixels, int width, int height, int offsetX, int offsetY)
+    {
+        for (int i = 0; i < height; ++i)
+        {
+            for (int j = 0; j < width; ++j)
+            {
+                uint8_t value = pixels[i * width + j];
+                const auto &col = colors[(value >> 5) & 0x07];
+                SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, 255);
+                SDL_RenderDrawPoint(renderer, j + offsetX, i + offsetY);
+            }
+        }
+    }
+
     void drawSliders()
     {
-        std::ifstream file("Slider.bin", std::ios::binary);
+        std::ifstream file(assetPath("Slider.bin"), std::ios::binary);
         int width = 16, height = 15;
         std::vector<uint8_t> pixels(width * height);
 
@@ -279,50 +313,43 @@ private:
         {
             for (const Slider &slider : sliders)
             {
-                for (int i = 0; i < height; ++i)
-                {
-                    for (int j = 0; j < width; ++j)
-                    {
-                        uint8_t value = pixels[i * width + j];
-                        int pixel = (value >> 5) & 0x07;
-                        const auto &col = colors[pixel];
-                        SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, 255);
-                        SDL_RenderDrawPoint(renderer, j + slider.y, i + slider.x);
-                    }
-                }
+                drawPalettePixels(pixels, width, height, slider.y, slider.x);
             }
         }
     }
 
     void drawOverlay()
     {
-        std::ifstream file("Menu.bin", std::ios::binary);
+        std::ifstream file(assetPath("Menu.bin"), std::ios::binary);
         std::vector<uint8_t> pixels(MENU_HEIGHT * SCREEN_WIDTH);
 
         if (file.read(reinterpret_cast<char *>(pixels.data()), pixels.size()))
         {
-            for (int i = 0; i < MENU_HEIGHT; ++i)
-            {
-                for (int j = 0; j < SCREEN_WIDTH; ++j)
-                {
-                    uint8_t value = pixels[i * SCREEN_WIDTH + j];
-                    int pixel = (value >> 5) & 0x07;
-                    const auto &col = colors[pixel];
-                    SDL_SetRenderDrawColor(renderer, col.r, col.g, col.b, 255);
-                    SDL_RenderDrawPoint(renderer, j, i);
-                }
-            }
+            drawPalettePixels(pixels, SCREEN_WIDTH, MENU_HEIGHT, 0, 0);
         }
-        // drawSliders();
     }
 
 public:
     PaintApp() : window(nullptr), renderer(nullptr)
     {
-        SDL_Init(SDL_INIT_VIDEO);
+        if (SDL_Init(SDL_INIT_VIDEO) != 0)
+        {
+            std::cerr << "SDL_Init failed: " << SDL_GetError() << std::endl;
+            std::exit(1);
+        }
         window = SDL_CreateWindow("Paint", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                   SCREEN_WIDTH, SCREEN_HEIGHT, 0);
+        if (window == nullptr)
+        {
+            std::cerr << "SDL_CreateWindow failed: " << SDL_GetError() << std::endl;
+            std::exit(1);
+        }
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+        if (renderer == nullptr)
+        {
+            std::cerr << "SDL_CreateRenderer failed: " << SDL_GetError() << std::endl;
+            std::exit(1);
+        }
     }
 
     ~PaintApp()
@@ -361,6 +388,15 @@ public:
         SDL_RenderPresent(renderer);
     }
 
+    void smokeTest()
+    {
+        clearScreen();
+        drawLine(100, 200, 600, 400);
+        drawCircle(640, 360, 800, 360);
+        drawScreen();
+        SDL_Delay(100);
+    }
+
     void handleInput()
     {
         SDL_Event e;
@@ -373,8 +409,8 @@ public:
                 break;
 
             case SDL_MOUSEBUTTONDOWN:
-                startX = e.motion.x;
-                startY = e.motion.y;
+                startX = e.button.x;
+                startY = e.button.y;
                 if (startY < MENU_HEIGHT)
                 {
                     handleToolSelection(startY / ROW_HEIGHT, startX / TOOL_WIDTH);
@@ -506,9 +542,14 @@ Have fun creating your masterpiece!
     }
 };
 
-int main(int argc, char **argv)
+int main()
 {
     PaintApp app;
+    if (std::getenv("PAINT_SMOKE_TEST") != nullptr)
+    {
+        app.smokeTest();
+        return 0;
+    }
     app.run();
     return 0;
 }

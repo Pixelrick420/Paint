@@ -1,0 +1,66 @@
+name: build-static
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      SDL_VERSION: 2.32.10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build pkg-config \
+            libx11-dev libxext-dev libxrandr-dev libxi-dev libxrender-dev \
+            libxcursor-dev libxfixes-dev libxss-dev libxkbcommon-dev
+
+      - name: Build static SDL2
+        run: |
+          curl -fL "https://github.com/libsdl-org/SDL/releases/download/release-${SDL_VERSION}/SDL2-${SDL_VERSION}.tar.gz" -o sdl2.tar.gz
+          tar xzf sdl2.tar.gz
+          cmake -S "SDL2-${SDL_VERSION}" -B build-sdl -G Ninja \
+            -DSDL_STATIC=ON -DSDL_SHARED=OFF \
+            -DSDL_TESTS=OFF \
+            -DSDL_AUDIO=OFF -DSDL_JOYSTICK=OFF -DSDL_HAPTIC=OFF \
+            -DSDL_HIDAPI=OFF -DSDL_SENSOR=OFF \
+            -DSDL_X11=ON -DSDL_WAYLAND=OFF -DSDL_DBUS=OFF \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/sdl-prefix"
+          cmake --build build-sdl --target install
+
+      - name: Compile paint (static SDL)
+        run: |
+          g++ -std=c++17 -O2 -o paint paint.cpp \
+            $("$GITHUB_WORKSPACE/sdl-prefix/bin/sdl2-config" --cflags --static-libs)
+
+      - name: Verify no SDL runtime dependency
+        run: |
+          file paint
+          if ldd paint | grep -i sdl; then
+            echo "::error::binary still depends on SDL at runtime"
+            exit 1
+          fi
+          echo "OK - libSDL2 is statically linked, no runtime SDL dependency"
+
+      - name: Smoke test (headless)
+        run: |
+          mkdir -p dist
+          cp paint dist/
+          cp -r assets images dist/
+          (cd dist && SDL_VIDEODRIVER=offscreen PAINT_SMOKE_TEST=1 timeout 30 ./paint)
+          echo "smoke test passed"
+
+      - name: Package artifact
+        run: tar -C dist -czf paint-linux-static.tar.gz paint assets images
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paint-linux-static
+          path: paint-linux-static.tar.gz
