@@ -1,62 +1,21 @@
 #include <SDL2/SDL.h>
 #include <vector>
-#include <array>
 #include <string>
 #include <fstream>
 #include <iostream>
 #include <deque>
 #include <cmath>
-#include <unistd.h>
+#include <algorithm>
 #include <cstdlib>
+#include <cstdint>
 
-static std::string assetPath(const std::string &name)
-{
-    std::string base = "assets";
-    char buf[4096];
-    ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
-    if (len > 0)
-    {
-        buf[len] = '\0';
-        std::string exePath(buf);
-        std::string::size_type slash = exePath.find_last_of('/');
-        if (slash != std::string::npos)
-            base = exePath.substr(0, slash) + "/assets";
-    }
-    return base + "/" + name;
-}
+#include "common.hpp"
 
-struct Color
-{
-    uint8_t r, g, b;
-};
-
-struct Slider
-{
-    int x, y, value;
-};
+using namespace paint;
 
 class PaintApp
 {
 private:
-    static constexpr int NUM_COLORS = 8;
-    static constexpr int SCREEN_HEIGHT = 720;
-    static constexpr int SCREEN_WIDTH = 1280;
-    static constexpr int POINT_THRESHOLD = 100000;
-    static constexpr int MENU_HEIGHT = 112;
-    static constexpr int TOOL_WIDTH = 50;
-    static constexpr int ROW_HEIGHT = 56;
-
-    const std::array<Color, NUM_COLORS> colors = {{
-        {0, 0, 0},       // black
-        {163, 73, 164},  // purple
-        {63, 72, 204},   // blue
-        {34, 177, 76},   // green
-        {255, 201, 14},  // yellow
-        {237, 28, 36},   // red
-        {127, 127, 127}, // gray
-        {255, 255, 255}  // white
-    }};
-
     SDL_Window *window;
     SDL_Renderer *renderer;
     std::deque<SDL_Point> points;
@@ -119,7 +78,7 @@ private:
 
     void drawCircle(int cx, int cy, int x, int y)
     {
-        int radius = (int)std::sqrt((cx - x) * (cx - x) + (cy - y) * (cy - y));
+        int radius = static_cast<int>(std::sqrt((cx - x) * (cx - x) + (cy - y) * (cy - y)));
         int radiusSq = radius * radius, circleThickness = thickness * 2;
         for (int dx = -radius - circleThickness; dx <= radius + circleThickness; dx++)
         {
@@ -132,7 +91,7 @@ private:
                     cury >= MENU_HEIGHT + 20 && cury < SCREEN_HEIGHT)
                 {
                     int distSq = dx * dx + dy * dy;
-                    if (abs(distSq - radiusSq) <= circleThickness * radius)
+                    if (std::abs(distSq - radiusSq) <= circleThickness * radius)
                     {
                         drawPoint(curx, cury);
                     }
@@ -423,7 +382,7 @@ public:
                 {
                     mode = 1;
                     drawPoint(startX, startY);
-                    if (tool >= 2 && tool <= 5)
+                    if (tool >= 3 && tool <= 5)
                     {
                         if (shapeStart.x != -1)
                         {
@@ -478,10 +437,10 @@ public:
                     clearScreen();
                     break;
                 case SDLK_z:
-                    thickness++;
+                    thickness = std::clamp(thickness + 1, 1, 64);
                     break;
                 case SDLK_x:
-                    thickness--;
+                    thickness = std::clamp(thickness - 1, 1, 64);
                     break;
                 }
                 break;
@@ -507,18 +466,21 @@ public:
 ================== Paint Program Help ==================
 Controls:
 1. Mouse:
-   - Click on a tool or color in the menu to select it.
-   - Left-click and drag to draw using pencil tool.
-   - Use the Eraser tool to erase parts of the drawing.
+   - Click a tool or a color in the menu to select it.
+   - Left-click and drag to draw with the pencil tool.
+   - Use the eraser tool to erase parts of the drawing.
+   - For the line, circle, and rectangle tools, click once
+     for the start and once for the end of the shape.
 
 2. Keyboard:
-   - [1-7]: Select colors.
-   - [D]: Enter drawing mode (Pencil tool).
+   - [1-7]: Select a color.
    - [C]: Clear the screen.
+   - [Z]: Increase the line thickness.
+   - [X]: Decrease the line thickness.
 
 3. Tools in the Menu:
    First row:
-       1. Pencil tool (drawing mode)
+       1. Pencil tool
        2. Line tool
        3. Rectangle tool
        4. Black color
@@ -529,14 +491,14 @@ Controls:
        1. Eraser
        2. Circle tool
        3. Help
-       4. Violet color
+       4. Purple color
        5. Green color
        6. Red color
-       7. Clear screen
+       7. White color
 
 Instructions:
-1. Start by selecting a tool or color from the menu.
-2. Use the left mouse button to interact with the canvas.
+1. Select a tool or a color from the menu.
+2. Use the left mouse button on the canvas.
 3. Change colors or tools anytime by clicking menu icons.
 4. Use keyboard shortcuts for quicker actions.
 

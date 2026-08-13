@@ -4,3 +4,4 @@ paint
 AGENTS.md
 .agents-md.sha256
 .gitattributes
+.dev-agent/
