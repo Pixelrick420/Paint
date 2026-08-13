@@ -59,7 +59,10 @@ jobs:
         run: |
           test -f "$GITHUB_WORKSPACE/sdl-prefix/lib/pkgconfig/sdl2.pc"
           export PKG_CONFIG_PATH="$GITHUB_WORKSPACE/sdl-prefix/lib/pkgconfig"
-          g++ -std=c++23 -O2 -static-libgcc -static-libstdc++ -o paint paint.cpp \
+          g++ -std=c++23 -O2 -static-libgcc -static-libstdc++ -Isrc -o paint \
+            paint.cpp src/app/app.cpp src/app/render.cpp \
+            src/io/input.cpp src/draw/draw.cpp \
+            src/draw/canvas.cpp src/io/bmp.cpp \
             $(pkg-config --static --cflags --libs sdl2)
 
       - name: Verify no SDL or C++ runtime dependency

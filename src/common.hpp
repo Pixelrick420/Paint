@@ -16,6 +16,17 @@ inline constexpr int MENU_HEIGHT = 112;
 inline constexpr int TOOL_WIDTH = 50;
 inline constexpr int ROW_HEIGHT = 56;
 
+// Growing-canvas settings
+inline constexpr int MAX_GRID = 4096;                 // hard cap: max cells per side
+inline constexpr int INITIAL_CANVAS_WIDTH = SCREEN_WIDTH;
+inline constexpr int INITIAL_CANVAS_HEIGHT = SCREEN_HEIGHT - MENU_HEIGHT;
+inline constexpr int CHUNK = 64;                      // canvas growth step (cells)
+inline constexpr float MIN_ZOOM = 0.1f;
+inline constexpr float MAX_ZOOM = 8.0f;
+inline constexpr int MIN_GRID_PX = 10;                // min on-screen grid spacing
+inline constexpr int STATUS_STRIP_H = 20;             // strip between menu and canvas
+inline constexpr int MAX_LINE_THICKNESS = 64;
+
 struct Color
 {
     uint8_t r, g, b;
