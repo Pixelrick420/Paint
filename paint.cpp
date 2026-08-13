@@ -18,6 +18,7 @@ class PaintApp
 private:
     SDL_Window *window;
     SDL_Renderer *renderer;
+    SDL_Texture *canvas;
     std::deque<SDL_Point> points;
     std::vector<Slider> sliders = {
         {8, 961, 0},  // r
@@ -289,7 +290,7 @@ private:
     }
 
 public:
-    PaintApp() : window(nullptr), renderer(nullptr)
+    PaintApp() : window(nullptr), renderer(nullptr), canvas(nullptr)
     {
         if (SDL_Init(SDL_INIT_VIDEO) != 0)
         {
@@ -313,10 +314,18 @@ public:
             std::cerr << "SDL_CreateRenderer failed: " << SDL_GetError() << std::endl;
             std::exit(1);
         }
+        canvas = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
+                                   SDL_TEXTUREACCESS_TARGET, SCREEN_WIDTH, SCREEN_HEIGHT);
+        if (canvas == nullptr)
+        {
+            std::cerr << "SDL_CreateTexture (canvas) failed: " << SDL_GetError() << std::endl;
+            std::exit(1);
+        }
     }
 
     ~PaintApp()
     {
+        SDL_DestroyTexture(canvas);
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
         SDL_Quit();
@@ -326,28 +335,38 @@ public:
     {
         points.clear();
         color = {0, 0, 0};
+        SDL_SetRenderTarget(renderer, canvas);
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderClear(renderer);
-        setCursor(0);
         drawOverlay();
+        SDL_SetRenderTarget(renderer, nullptr);
+        setCursor(0);
         mode = 0;
         tool = 1;
         thickness = 2;
         shapeStart = {-1, -1};
     }
 
+    void flushPoints()
+    {
+        if (points.empty())
+        {
+            return;
+        }
+        SDL_SetRenderTarget(renderer, canvas);
+        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, 255);
+        for (const SDL_Point &p : points)
+        {
+            SDL_RenderDrawPoint(renderer, p.x, p.y);
+        }
+        SDL_SetRenderTarget(renderer, nullptr);
+        points.clear();
+    }
+
     void drawScreen()
     {
-        if (!points.empty())
-        {
-            SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, 255);
-            size_t startIdx = points.size() > POINT_THRESHOLD ? points.size() - POINT_THRESHOLD : 0;
-            for (size_t i = startIdx; i < points.size(); ++i)
-            {
-                SDL_RenderDrawPoint(renderer, points[i].x, points[i].y);
-            }
-        }
-        points.clear();
+        flushPoints();
+        SDL_RenderCopy(renderer, canvas, nullptr, nullptr);
         SDL_RenderPresent(renderer);
     }
 
