@@ -138,15 +138,6 @@ SDL_Rect PaintApp::canvasScreenRect() const
     return r;
 }
 
-void PaintApp::drawFillIcon()
-{
-    if (!fillTex)
-        return;
-    int slotX = 7 * TOOL_WIDTH;
-    SDL_Rect dst = {slotX + (TOOL_WIDTH - fillTexW) / 2, (ROW_HEIGHT - fillTexH) / 2, fillTexW, fillTexH};
-    SDL_RenderCopy(renderer, fillTex, nullptr, &dst);
-}
-
 void PaintApp::drawStatusStrip()
 {
     SDL_SetRenderDrawColor(renderer, 238, 238, 238, 255);
@@ -276,11 +267,11 @@ void PaintApp::drawScreen()
         SDL_Rect menuDst = {0, 0, SCREEN_WIDTH, MENU_HEIGHT};
         SDL_RenderCopy(renderer, menuTex, nullptr, &menuDst);
     }
-    drawFillIcon();
     drawStatusStrip();
     drawPreview();
     drawFlashOverlays();
     drawScrollBars();
+    drawHelpPopup();
     SDL_RenderPresent(renderer);
 }
 

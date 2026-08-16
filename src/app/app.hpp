@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 
 #include <algorithm>
 #include <cmath>
@@ -23,10 +24,15 @@ private:
     SDL_Renderer *renderer;
     SDL_Texture *canvasTex;
     SDL_Texture *menuTex;
-    SDL_Texture *fillTex;
-    SDL_Surface *fillSurf;
-    int fillTexW{0}, fillTexH{0};
     int gridMax{MAX_GRID};
+
+    // Help popup (opened with Ctrl+/)
+    TTF_Font *helpFont{nullptr};
+    SDL_Texture *helpTex{nullptr};      // body text
+    SDL_Texture *helpTitleTex{nullptr}; // "Help" title
+    SDL_Rect helpPanel{0, 0, 0, 0};     // popup panel rect (screen coords)
+    SDL_Rect helpClose{0, 0, 0, 0};     // close-button rect (screen coords)
+    bool helpOpen{false};
 
     // Pending stroke points (world coords) until the next texture upload.
     std::deque<SDL_Point> points;
@@ -104,12 +110,17 @@ private:
     void drawCanvasView();
     void drawGrid();
     SDL_Rect canvasScreenRect() const;
-    void drawFillIcon();
     void drawStatusStrip();
     void drawPreview();
     void drawFlashOverlays();
     void drawScrollBars();
     void drawScreen();
+
+    // Help popup (paint_app.cpp) ---------------------------------------------
+    void buildHelpTexture();
+    void drawHelpPopup();
+    void toggleHelp() { helpOpen = !helpOpen; }
+    void closeHelp() { helpOpen = false; }
 
     // Input (paint_input.cpp) -----------------------------------------------
     void zoomAt(int mx, int my, float factor);
@@ -118,7 +129,7 @@ private:
     void handleInput();
     void setCursor(int type);
     void setCursorForTool();
-    void handleToolSelection(int row, int col);
+    void handleMenuClick(int mx, int my);
 
     // Lifecycle (paint_app.cpp) ---------------------------------------------
     SDL_Texture *buildMenuTexture();
@@ -130,7 +141,6 @@ public:
 
     void run();
     void smokeTest();
-    static void printHelp();
 };
 
 }

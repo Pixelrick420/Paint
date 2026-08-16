@@ -1,7 +1,7 @@
 CXX      := g++
 CXXFLAGS := -std=c++23 -O2 -Wall -Wextra -Isrc
-SDL_CFLAGS := $(shell pkg-config --cflags sdl2)
-SDL_LIBS   := $(shell pkg-config --libs sdl2)
+SDL_CFLAGS := $(shell pkg-config --cflags sdl2 SDL2_ttf)
+SDL_LIBS   := $(shell pkg-config --libs sdl2 SDL2_ttf)
 
 TARGET := paint
 SRC    := paint.cpp src/app/app.cpp src/app/render.cpp \

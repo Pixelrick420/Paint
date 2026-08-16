@@ -78,6 +78,10 @@ void PaintApp::handleKey(const SDL_KeyboardEvent &key)
         case SDLK_g:
             showGrid = !showGrid;
             break;
+        case SDLK_SLASH:
+        case SDLK_KP_DIVIDE:
+            toggleHelp();
+            break;
         default:
             break;
         }
@@ -105,6 +109,10 @@ void PaintApp::handleKey(const SDL_KeyboardEvent &key)
     case SDLK_f:
         tool = 6;
         setCursorForTool();
+        break;
+    case SDLK_ESCAPE:
+        if (helpOpen)
+            closeHelp();
         break;
     case SDLK_LEFT:
         camX -= 40.0f / zoom;
@@ -146,6 +154,18 @@ void PaintApp::handleInput()
                 int mx = e.button.x, my = e.button.y;
                 lastMouseX = mx;
                 lastMouseY = my;
+                if (helpOpen)
+                {
+                    // Clicks while the help popup is open either close it
+                    // (close button or outside the panel) or are swallowed.
+                    if (mx >= helpClose.x && mx < helpClose.x + helpClose.w &&
+                        my >= helpClose.y && my < helpClose.y + helpClose.h)
+                        closeHelp();
+                    else if (mx < helpPanel.x || mx >= helpPanel.x + helpPanel.w ||
+                             my < helpPanel.y || my >= helpPanel.y + helpPanel.h)
+                        closeHelp();
+                    break;
+                }
                 if (my >= MENU_HEIGHT && my < SCREEN_HEIGHT - SCROLLBAR_W &&
                     mx >= SCREEN_WIDTH - SCROLLBAR_W && mx < SCREEN_WIDTH)
                 {
@@ -160,7 +180,7 @@ void PaintApp::handleInput()
                 }
                 if (my < MENU_HEIGHT)
                 {
-                    handleToolSelection(my / ROW_HEIGHT, mx / TOOL_WIDTH);
+                    handleMenuClick(mx, my);
                 }
                 else if (my >= MENU_HEIGHT + STATUS_STRIP_H)
                 {
@@ -296,45 +316,70 @@ void PaintApp::handleInput()
 
 void PaintApp::setCursor(int type)
 {
-    std::string cursorFile;
+    const char *file = nullptr;
+    int hotX = 0, hotY = 0;
+    bool scaleToThickness = false;
     switch (type)
     {
-    case 0:
-        cursorFile = assetPath("pencil.bmp");
+    case 0: // pencil tip (bottom-left of the diagonal icon)
+        file = "pencil.bmp";
+        hotX = 0;
+        hotY = 31;
         break;
-    case 1:
-        cursorFile = assetPath("point.bmp");
+    case 1: // crosshair center
+        file = "point.bmp";
+        hotX = 8;
+        hotY = 8;
         break;
-    case 2:
-        cursorFile = assetPath("eraser.bmp");
+    case 2: // eraser, sized with the current thickness
+        file = "eraser.bmp";
+        scaleToThickness = true;
         break;
     default:
         SDL_SetCursor(SDL_GetDefaultCursor());
         return;
     }
-    int cursorSize = effectiveThickness() * 3;
-    SDL_Surface *cursorSurface = SDL_LoadBMP(cursorFile.c_str());
-    if (cursorSurface == nullptr)
-    {
+
+    SDL_Surface *icon = SDL_LoadBMP(assetPath(file).c_str());
+    if (icon == nullptr)
         return; // asset missing - keep the default cursor
-    }
-    SDL_Cursor *cursor = nullptr;
-    if (type == 2)
+
+    SDL_Surface *cursorSurf = icon;
+    if (scaleToThickness)
     {
-        SDL_Surface *scaledSurface = SDL_CreateRGBSurfaceWithFormat(
-            0, cursorSize, cursorSize, 32, SDL_PIXELFORMAT_RGBA32);
-        SDL_Rect srcRect = {0, 0, cursorSurface->w, cursorSurface->h};
-        SDL_Rect dstRect = {0, 0, cursorSize, cursorSize};
-        SDL_BlitScaled(cursorSurface, &srcRect, scaledSurface, &dstRect);
-        cursor = SDL_CreateColorCursor(scaledSurface, cursorSize / 2, cursorSize / 2);
-        SDL_FreeSurface(scaledSurface);
+        int size = std::max(4, effectiveThickness() * 3);
+        SDL_Surface *conv = SDL_ConvertSurfaceFormat(icon, SDL_PIXELFORMAT_ARGB8888, 0);
+        if (conv != nullptr)
+        {
+            cursorSurf = SDL_CreateRGBSurfaceWithFormat(
+                0, size, size, 32, SDL_PIXELFORMAT_ARGB8888);
+            // Nearest-neighbor scale to keep the pixel art crisp.
+            for (int y = 0; y < size; ++y)
+            {
+                const uint8_t *s = (const uint8_t *)conv->pixels +
+                                   (size_t)(y * conv->h / size) * conv->pitch;
+                uint8_t *d = (uint8_t *)cursorSurf->pixels + (size_t)y * cursorSurf->pitch;
+                for (int x = 0; x < size; ++x)
+                {
+                    const uint8_t *sp = s + (size_t)(x * conv->w / size) * 4;
+                    uint8_t *dp = d + (size_t)x * 4;
+                    dp[0] = sp[0];
+                    dp[1] = sp[1];
+                    dp[2] = sp[2];
+                    dp[3] = sp[3];
+                }
+            }
+            hotX = size / 2;
+            hotY = size / 2;
+            SDL_FreeSurface(conv);
+        }
     }
-    else
-    {
-        cursor = SDL_CreateColorCursor(cursorSurface, 0, cursorSurface->h - 1);
-    }
-    SDL_SetCursor(cursor);
-    SDL_FreeSurface(cursorSurface);
+    SDL_Cursor *cursor = SDL_CreateColorCursor(cursorSurf, hotX, hotY);
+    if (cursor != nullptr)
+        SDL_SetCursor(cursor);
+    if (cursorSurf != icon)
+        SDL_FreeSurface(cursorSurf);
+    SDL_FreeSurface(icon);
 }
 
 void PaintApp::setCursorForTool()
@@ -347,73 +392,35 @@ void PaintApp::setCursorForTool()
         setCursor(1);
 }
 
-void PaintApp::handleToolSelection(int row, int col)
+void PaintApp::handleMenuClick(int mx, int my)
 {
     shapeStart = {-1, -1};
-    if (row == 0)
+
+    // Tools: left-aligned cluster.
+    for (const ToolSlot &slot : toolSlots)
     {
-        switch (col)
-        {
-        case 0:
-            tool = 1;
-            color = colors[0];
-            setCursorForTool();
-            break; // Pencil
-        case 1:
-            tool = 3;
-            setCursorForTool();
-            break; // Line
-        case 2:
-            tool = 5;
-            setCursorForTool();
-            break; // Rectangle
-        case 3:
-            color = colors[0];
-            break;
-        case 4:
-            color = colors[2];
-            break;
-        case 5:
-            color = colors[4];
-            break;
-        case 6:
-            color = colors[6];
-            break;
-        case 7:
-            tool = 6;
-            setCursorForTool();
-            break; // Fill
-        }
+        int x0 = slot.col * TOOL_WIDTH;
+        int y0 = slot.row * ROW_HEIGHT;
+        if (mx < x0 || mx >= x0 + TOOL_WIDTH || my < y0 || my >= y0 + ROW_HEIGHT)
+            continue;
+        tool = slot.tool;
+        if (slot.forceColor)
+            color = colors[slot.forceColorIndex];
+        setCursorForTool();
+        return;
     }
-    else if (row == 1)
+
+    // Colors: right-aligned block.
+    for (int i = 0; i < NUM_COLORS; ++i)
     {
-        switch (col)
-        {
-        case 0:
-            tool = 2;
-            color = colors[7];
-            setCursorForTool();
-            break; // Eraser
-        case 1:
-            tool = 4;
-            setCursorForTool();
-            break; // Circle
-        case 2:
-            printHelp();
-            break; // Help
-        case 3:
-            color = colors[1];
-            break;
-        case 4:
-            color = colors[3];
-            break;
-        case 5:
-            color = colors[5];
-            break;
-        case 6:
-            color = colors[7];
-            break;
-        }
+        int row = i / MENU_COLORS_PER_ROW;
+        int col = i % MENU_COLORS_PER_ROW;
+        int x0 = MENU_COLOR_LEFT + col * TOOL_WIDTH;
+        int y0 = row * ROW_HEIGHT;
+        if (mx < x0 || mx >= x0 + TOOL_WIDTH || my < y0 || my >= y0 + ROW_HEIGHT)
+            continue;
+        color = colors[menuColorOrder[i]];
+        return;
     }
 }
 
