@@ -120,6 +120,7 @@ void PaintApp::clearScreen()
     camX = 0;
     camY = 0;
     zoom = 1.0f;
+    scrollDrag = 0;
     canvas.clear();
     dirty = true;
     setCursorForTool();
@@ -177,7 +178,10 @@ Controls:
      for the start and once for the end of the shape; a
      preview follows your mouse between the two clicks.
    - Fill (bucket) tool: click inside a region to flood-fill it.
-   - Mouse wheel: zoom in/out at the cursor.
+   - Ctrl + mouse wheel: zoom in/out at the cursor.
+   - Mouse wheel: scroll up/down.
+   - Shift + mouse wheel: scroll left/right.
+   - Drag the scroll bars (right and bottom edges) to scroll the canvas.
    - Middle-mouse drag or arrow keys: pan the canvas.
 
 2. Keyboard:

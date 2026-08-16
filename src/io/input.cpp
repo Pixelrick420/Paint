@@ -22,6 +22,50 @@ void PaintApp::zoomAt(int mx, int my, float factor)
     setCursorForTool();
 }
 
+void PaintApp::beginScrollDrag(int axis, int mx, int my)
+{
+    float viewW = (float)SCREEN_WIDTH / zoom;
+    float viewH = (float)(SCREEN_HEIGHT - MENU_HEIGHT) / zoom;
+    float trackLenV = (float)(SCREEN_HEIGHT - MENU_HEIGHT - SCROLLBAR_W);
+    float trackLenH = (float)(SCREEN_WIDTH - SCROLLBAR_W);
+
+    if (axis == 1)
+    {
+        float worldH = (float)canvas.height();
+        if (worldH <= viewH)
+        {
+            scrollDrag = 0;
+            return;
+        }
+        float thumbLen = std::max((float)MIN_THUMB_LEN, trackLenV * viewH / worldH);
+        float maxScroll = worldH - viewH;
+        float frac = (my - MENU_HEIGHT - thumbLen / 2.0f) / (trackLenV - thumbLen);
+        frac = std::clamp(frac, 0.0f, 1.0f);
+        camY = (float)canvas.top() + frac * maxScroll;
+        scrollDrag = 1;
+        scrollDragStartY = my;
+        scrollDragStartCamY = camY;
+    }
+    else
+    {
+        float worldW = (float)canvas.width();
+        if (worldW <= viewW)
+        {
+            scrollDrag = 0;
+            return;
+        }
+        float thumbLen = std::max((float)MIN_THUMB_LEN, trackLenH * viewW / worldW);
+        float maxScroll = worldW - viewW;
+        float frac = (mx - thumbLen / 2.0f) / (trackLenH - thumbLen);
+        frac = std::clamp(frac, 0.0f, 1.0f);
+        camX = (float)canvas.left() + frac * maxScroll;
+        scrollDrag = 2;
+        scrollDragStartX = mx;
+        scrollDragStartCamX = camX;
+    }
+    dirty = true;
+}
+
 void PaintApp::handleKey(const SDL_KeyboardEvent &key)
 {
     if (key.keysym.mod & KMOD_CTRL)
@@ -102,6 +146,18 @@ void PaintApp::handleInput()
                 int mx = e.button.x, my = e.button.y;
                 lastMouseX = mx;
                 lastMouseY = my;
+                if (my >= MENU_HEIGHT && my < SCREEN_HEIGHT - SCROLLBAR_W &&
+                    mx >= SCREEN_WIDTH - SCROLLBAR_W && mx < SCREEN_WIDTH)
+                {
+                    beginScrollDrag(1, mx, my);
+                    break;
+                }
+                if (my >= SCREEN_HEIGHT - SCROLLBAR_W && my < SCREEN_HEIGHT &&
+                    mx >= 0 && mx < SCREEN_WIDTH - SCROLLBAR_W)
+                {
+                    beginScrollDrag(2, mx, my);
+                    break;
+                }
                 if (my < MENU_HEIGHT)
                 {
                     handleToolSelection(my / ROW_HEIGHT, mx / TOOL_WIDTH);
@@ -161,7 +217,10 @@ void PaintApp::handleInput()
 
         case SDL_MOUSEBUTTONUP:
             if (e.button.button == SDL_BUTTON_LEFT)
+            {
                 mode = 0;
+                scrollDrag = 0;
+            }
             else if (e.button.button == SDL_BUTTON_MIDDLE)
                 panning = false;
             break;
@@ -169,7 +228,31 @@ void PaintApp::handleInput()
         case SDL_MOUSEMOTION:
             lastMouseX = e.motion.x;
             lastMouseY = e.motion.y;
-            if (panning)
+            if (scrollDrag == 1)
+            {
+                float viewH = (float)(SCREEN_HEIGHT - MENU_HEIGHT) / zoom;
+                float worldH = (float)canvas.height();
+                float trackLen = (float)(SCREEN_HEIGHT - MENU_HEIGHT - SCROLLBAR_W);
+                float thumbLen = std::max((float)MIN_THUMB_LEN, trackLen * viewH / worldH);
+                float maxScroll = worldH - viewH;
+                float dy = (float)(lastMouseY - scrollDragStartY);
+                camY = scrollDragStartCamY + dy * maxScroll / (trackLen - thumbLen);
+                camY = std::clamp(camY, (float)canvas.top(), (float)canvas.top() + maxScroll);
+                dirty = true;
+            }
+            else if (scrollDrag == 2)
+            {
+                float viewW = (float)SCREEN_WIDTH / zoom;
+                float worldW = (float)canvas.width();
+                float trackLen = (float)(SCREEN_WIDTH - SCROLLBAR_W);
+                float thumbLen = std::max((float)MIN_THUMB_LEN, trackLen * viewW / worldW);
+                float maxScroll = worldW - viewW;
+                float dx = (float)(lastMouseX - scrollDragStartX);
+                camX = scrollDragStartCamX + dx * maxScroll / (trackLen - thumbLen);
+                camX = std::clamp(camX, (float)canvas.left(), (float)canvas.left() + maxScroll);
+                dirty = true;
+            }
+            else if (panning)
             {
                 camX = panStartCamX - (float)(lastMouseX - panStartMX) / zoom;
                 camY = panStartCamY - (float)(lastMouseY - panStartMY) / zoom;
@@ -188,7 +271,20 @@ void PaintApp::handleInput()
             break;
 
         case SDL_MOUSEWHEEL:
-            zoomAt(lastMouseX, lastMouseY, e.wheel.y > 0 ? 1.1f : 1.0f / 1.1f);
+            if (SDL_GetModState() & KMOD_CTRL)
+            {
+                zoomAt(lastMouseX, lastMouseY, e.wheel.y > 0 ? 1.1f : 1.0f / 1.1f);
+            }
+            else if (SDL_GetModState() & KMOD_SHIFT)
+            {
+                camX += e.wheel.y * SCROLL_PAN / zoom;
+                dirty = true;
+            }
+            else
+            {
+                camY += e.wheel.y * SCROLL_PAN / zoom;
+                dirty = true;
+            }
             break;
 
         case SDL_KEYDOWN:

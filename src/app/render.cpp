@@ -72,21 +72,70 @@ void PaintApp::drawGrid()
     while ((float)step * zoom < MIN_GRID_PX)
         step *= 2;
 
+    SDL_Rect clip = canvasScreenRect();
+    if (clip.w <= 0 || clip.h <= 0)
+        return;
+    SDL_Rect oldClip;
+    SDL_bool hadClip = SDL_RenderIsClipEnabled(renderer);
+    if (hadClip)
+        SDL_RenderGetClipRect(renderer, &oldClip);
+    SDL_RenderSetClipRect(renderer, &clip);
+
     float viewL = camX, viewT = camY;
     float viewR = camX + (float)SCREEN_WIDTH / zoom;
     float viewB = camY + (float)(SCREEN_HEIGHT - MENU_HEIGHT) / zoom;
 
-    SDL_SetRenderDrawColor(renderer, 190, 190, 190, 255);
     for (int x = floorDiv((int)std::floor(viewL), step) * step; x < (int)std::ceil(viewR); x += step)
     {
+        int idx = x / step;
+        if (idx % 10 == 0)
+            SDL_SetRenderDrawColor(renderer, 140, 140, 140, 255);
+        else if (idx % 5 == 0)
+            SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
+        else
+            SDL_SetRenderDrawColor(renderer, 235, 235, 235, 255);
         int sx = (int)std::lround((x - viewL) * zoom);
-        SDL_RenderDrawLine(renderer, sx, MENU_HEIGHT, sx, SCREEN_HEIGHT);
+        SDL_Rect r = {sx, MENU_HEIGHT, 1, SCREEN_HEIGHT - MENU_HEIGHT};
+        SDL_RenderFillRect(renderer, &r);
     }
     for (int y = floorDiv((int)std::floor(viewT), step) * step; y < (int)std::ceil(viewB); y += step)
     {
+        int idx = y / step;
+        if (idx % 10 == 0)
+            SDL_SetRenderDrawColor(renderer, 140, 140, 140, 255);
+        else if (idx % 5 == 0)
+            SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
+        else
+            SDL_SetRenderDrawColor(renderer, 235, 235, 235, 255);
         int sy = MENU_HEIGHT + (int)std::lround((y - viewT) * zoom);
-        SDL_RenderDrawLine(renderer, 0, sy, SCREEN_WIDTH, sy);
+        SDL_Rect r = {0, sy, SCREEN_WIDTH, 1};
+        SDL_RenderFillRect(renderer, &r);
     }
+
+    SDL_RenderSetClipRect(renderer, hadClip ? &oldClip : nullptr);
+}
+
+SDL_Rect PaintApp::canvasScreenRect() const
+{
+    float viewL = camX, viewT = camY;
+    float viewR = camX + (float)SCREEN_WIDTH / zoom;
+    float viewB = camY + (float)(SCREEN_HEIGHT - MENU_HEIGHT) / zoom;
+
+    int clipL = std::max(canvas.left(), (int)std::floor(viewL));
+    int clipT = std::max(canvas.top(), (int)std::floor(viewT));
+    int clipR = std::min(canvas.right(), (int)std::ceil(viewR));
+    int clipB = std::min(canvas.bottom(), (int)std::ceil(viewB));
+
+    SDL_Rect r = {0, 0, 0, 0};
+    if (clipR > clipL && clipB > clipT)
+    {
+        r = {
+            (int)std::lround((clipL - viewL) * zoom),
+            MENU_HEIGHT + (int)std::lround((clipT - viewT) * zoom),
+            (int)std::lround((clipR - clipL) * zoom),
+            (int)std::lround((clipB - clipT) * zoom)};
+    }
+    return r;
 }
 
 void PaintApp::drawFillIcon()
@@ -131,6 +180,16 @@ void PaintApp::drawPreview()
 {
     if (shapeStart.x == -1 || tool < 3 || tool > 5)
         return;
+
+    SDL_Rect clip = canvasScreenRect();
+    if (clip.w <= 0 || clip.h <= 0)
+        return;
+    SDL_Rect oldClip;
+    SDL_bool hadClip = SDL_RenderIsClipEnabled(renderer);
+    if (hadClip)
+        SDL_RenderGetClipRect(renderer, &oldClip);
+    SDL_RenderSetClipRect(renderer, &clip);
+
     int wx = toWorldX(lastMouseX), wy = toWorldY(lastMouseY);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     previewing = true;
@@ -148,6 +207,8 @@ void PaintApp::drawPreview()
     }
     previewing = false;
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+
+    SDL_RenderSetClipRect(renderer, hadClip ? &oldClip : nullptr);
 }
 
 void PaintApp::drawFlashOverlays()
@@ -159,6 +220,48 @@ void PaintApp::drawFlashOverlays()
         SDL_Rect r = {SCREEN_WIDTH - 96, MENU_HEIGHT + 14, 84, 22};
         SDL_RenderFillRect(renderer, &r);
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+    }
+}
+
+void PaintApp::drawScrollBars()
+{
+    float viewW = (float)SCREEN_WIDTH / zoom;
+    float viewH = (float)(SCREEN_HEIGHT - MENU_HEIGHT) / zoom;
+    float worldW = (float)canvas.width();
+    float worldH = (float)canvas.height();
+    float trackLenV = (float)(SCREEN_HEIGHT - MENU_HEIGHT - SCROLLBAR_W);
+    float trackLenH = (float)(SCREEN_WIDTH - SCROLLBAR_W);
+
+    SDL_SetRenderDrawColor(renderer, 218, 218, 218, 255);
+    SDL_Rect vTrack = {SCREEN_WIDTH - SCROLLBAR_W, MENU_HEIGHT, SCROLLBAR_W, (int)trackLenV};
+    SDL_RenderFillRect(renderer, &vTrack);
+    SDL_Rect hTrack = {0, SCREEN_HEIGHT - SCROLLBAR_W, (int)trackLenH, SCROLLBAR_W};
+    SDL_RenderFillRect(renderer, &hTrack);
+    SDL_Rect corner = {SCREEN_WIDTH - SCROLLBAR_W, SCREEN_HEIGHT - SCROLLBAR_W, SCROLLBAR_W, SCROLLBAR_W};
+    SDL_RenderFillRect(renderer, &corner);
+
+    if (worldH > viewH)
+    {
+        float thumbLen = std::max((float)MIN_THUMB_LEN, trackLenV * viewH / worldH);
+        float maxScroll = worldH - viewH;
+        float frac = (camY - (float)canvas.top()) / maxScroll;
+        frac = std::clamp(frac, 0.0f, 1.0f);
+        float ty = MENU_HEIGHT + frac * (trackLenV - thumbLen);
+        SDL_SetRenderDrawColor(renderer, 158, 158, 158, 255);
+        SDL_Rect vThumb = {SCREEN_WIDTH - SCROLLBAR_W, (int)ty, SCROLLBAR_W, (int)thumbLen};
+        SDL_RenderFillRect(renderer, &vThumb);
+    }
+
+    if (worldW > viewW)
+    {
+        float thumbLen = std::max((float)MIN_THUMB_LEN, trackLenH * viewW / worldW);
+        float maxScroll = worldW - viewW;
+        float frac = (camX - (float)canvas.left()) / maxScroll;
+        frac = std::clamp(frac, 0.0f, 1.0f);
+        float tx = frac * (trackLenH - thumbLen);
+        SDL_SetRenderDrawColor(renderer, 158, 158, 158, 255);
+        SDL_Rect hThumb = {(int)tx, SCREEN_HEIGHT - SCROLLBAR_W, (int)thumbLen, SCROLLBAR_W};
+        SDL_RenderFillRect(renderer, &hThumb);
     }
 }
 
@@ -177,6 +280,7 @@ void PaintApp::drawScreen()
     drawStatusStrip();
     drawPreview();
     drawFlashOverlays();
+    drawScrollBars();
     SDL_RenderPresent(renderer);
 }
 

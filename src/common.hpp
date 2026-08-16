@@ -22,10 +22,13 @@ inline constexpr int INITIAL_CANVAS_WIDTH = SCREEN_WIDTH;
 inline constexpr int INITIAL_CANVAS_HEIGHT = SCREEN_HEIGHT - MENU_HEIGHT;
 inline constexpr int CHUNK = 64;                      // canvas growth step (cells)
 inline constexpr float MIN_ZOOM = 0.1f;
-inline constexpr float MAX_ZOOM = 8.0f;
+inline constexpr float MAX_ZOOM = 32.0f;
 inline constexpr int MIN_GRID_PX = 10;                // min on-screen grid spacing
 inline constexpr int STATUS_STRIP_H = 20;             // strip between menu and canvas
 inline constexpr int MAX_LINE_THICKNESS = 64;
+inline constexpr int SCROLLBAR_W = 12;                // scroll bar thickness (px)
+inline constexpr int MIN_THUMB_LEN = 24;              // minimum scroll bar thumb length
+inline constexpr float SCROLL_PAN = 60.0f;            // world pan per wheel notch
 
 struct Color
 {

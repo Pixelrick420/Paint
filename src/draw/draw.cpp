@@ -24,9 +24,9 @@ void PaintApp::drawPoint(int wx, int wy)
     if (wx >= canvas.left() && wx < canvas.right() && wy >= canvas.top() && wy < canvas.bottom())
     {
         points.push_back({wx, wy});
-        if (points.size() > POINT_THRESHOLD)
+        if (points.size() >= POINT_THRESHOLD)
         {
-            points.pop_front();
+            flushPoints();
         }
     }
 }

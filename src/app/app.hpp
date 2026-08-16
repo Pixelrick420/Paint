@@ -45,6 +45,10 @@ private:
     int panStartMX{0}, panStartMY{0};
     float panStartCamX{0}, panStartCamY{0};
 
+    int scrollDrag{0}; // 0 = none, 1 = vertical bar, 2 = horizontal bar
+    int scrollDragStartX{0}, scrollDragStartY{0};
+    float scrollDragStartCamX{0}, scrollDragStartCamY{0};
+
     Color color{0, 0, 0};
     int mode{0}; // 0 = not clicking, 1 = dragging a tool
     int tool{1}; // 1=pencil, 2=eraser, 3=line, 4=circle, 5=rectangle, 6=fill
@@ -99,14 +103,17 @@ private:
     // Rendering (paint_render.cpp) ------------------------------------------
     void drawCanvasView();
     void drawGrid();
+    SDL_Rect canvasScreenRect() const;
     void drawFillIcon();
     void drawStatusStrip();
     void drawPreview();
     void drawFlashOverlays();
+    void drawScrollBars();
     void drawScreen();
 
     // Input (paint_input.cpp) -----------------------------------------------
     void zoomAt(int mx, int my, float factor);
+    void beginScrollDrag(int axis, int mx, int my);
     void handleKey(const SDL_KeyboardEvent &key);
     void handleInput();
     void setCursor(int type);
