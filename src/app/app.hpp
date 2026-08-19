@@ -97,6 +97,14 @@ private:
         return static_cast<int>(std::floor(camY + (sy - MENU_HEIGHT) / zoom));
     }
 
+    void clampCamera()
+    {
+        float viewW = (float)SCREEN_WIDTH / zoom;
+        float viewH = (float)(SCREEN_HEIGHT - MENU_HEIGHT) / zoom;
+        camX = std::clamp(camX, (float)canvas.left() - viewW, (float)canvas.right());
+        camY = std::clamp(camY, (float)canvas.top() - viewH, (float)canvas.bottom());
+    }
+
     // Drawing tools (paint_draw.cpp) ----------------------------------------
     void drawPoint(int wx, int wy);
     void drawLine(int x1, int y1, int x2, int y2);

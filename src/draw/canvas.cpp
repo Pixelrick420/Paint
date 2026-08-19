@@ -101,75 +101,111 @@ void Canvas::floodFill(int wx, int wy, Color color)
 
     int w = bounds.right - bounds.left;
     int h = bounds.bottom - bounds.top;
-    size_t n = (size_t)w * h;
-
-    std::vector<uint8_t> buf(n * 4);
-    uint8_t *px = buf.data();
-    int fx0 = bounds.left - originX_;
-    int fy0 = bounds.top - originY_;
-    for (int y = 0; y < h; ++y)
-    {
-        const uint8_t *src = &cpu[((size_t)(fy0 + y) * gridMax + fx0) * 4];
-        std::memcpy(px + (size_t)y * w * 4, src, (size_t)w * 4);
-    }
+    if (w <= 0 || h <= 0)
+        return;
 
     int sx = wx - bounds.left;
     int sy = wy - bounds.top;
     if (sx < 0 || sx >= w || sy < 0 || sy >= h)
         return;
 
-    size_t seed = (size_t)sy * w + sx;
-    uint8_t tr = px[seed * 4], tg = px[seed * 4 + 1], tb = px[seed * 4 + 2];
+    int fx0 = bounds.left - originX_;
+    int fy0 = bounds.top - originY_;
+
+    auto idx = [&](int x, int y) -> size_t {
+        return ((size_t)(fy0 + y) * gridMax + (fx0 + x)) * 4;
+    };
+
+    size_t si = idx(sx, sy);
+    uint8_t tr = cpu[si], tg = cpu[si + 1], tb = cpu[si + 2];
     if (tr == color.r && tg == color.g && tb == color.b)
         return;
 
-    std::vector<uint8_t> visited(n, 0);
     std::vector<size_t> stack;
-    stack.reserve(n);
-    stack.push_back(seed);
-    visited[seed] = 1;
+    stack.reserve(w);
+    stack.push_back(si);
+    cpu[si] = color.r;
+    cpu[si + 1] = color.g;
+    cpu[si + 2] = color.b;
+    cpu[si + 3] = 255;
 
     while (!stack.empty())
     {
-        size_t idx = stack.back();
+        size_t pi = stack.back();
         stack.pop_back();
-        size_t pi = idx * 4;
-        if (px[pi] == tr && px[pi + 1] == tg && px[pi + 2] == tb)
-        {
-            px[pi] = color.r;
-            px[pi + 1] = color.g;
-            px[pi + 2] = color.b;
-            px[pi + 3] = 255;
 
-            int x = (int)(idx % w);
-            int y = (int)(idx / w);
-            if (x > 0)
+        int px = (int)((pi / 4) % (size_t)gridMax) - fx0;
+        int py = (int)((pi / 4) / (size_t)gridMax) - fy0;
+
+        // Fill left.
+        int lx = px - 1;
+        while (lx >= 0)
+        {
+            size_t li = idx(lx, py);
+            if (cpu[li] == tr && cpu[li + 1] == tg && cpu[li + 2] == tb)
             {
-                size_t ni = idx - 1;
-                if (!visited[ni]) { visited[ni] = 1; stack.push_back(ni); }
+                cpu[li] = color.r;
+                cpu[li + 1] = color.g;
+                cpu[li + 2] = color.b;
+                cpu[li + 3] = 255;
+                --lx;
             }
-            if (x + 1 < w)
+            else
+                break;
+        }
+        ++lx;
+
+        // Fill right.
+        int rx = px + 1;
+        while (rx < w)
+        {
+            size_t ri = idx(rx, py);
+            if (cpu[ri] == tr && cpu[ri + 1] == tg && cpu[ri + 2] == tb)
             {
-                size_t ni = idx + 1;
-                if (!visited[ni]) { visited[ni] = 1; stack.push_back(ni); }
+                cpu[ri] = color.r;
+                cpu[ri + 1] = color.g;
+                cpu[ri + 2] = color.b;
+                cpu[ri + 3] = 255;
+                ++rx;
             }
-            if (y > 0)
+            else
+                break;
+        }
+        --rx;
+
+        // Push matching pixels in the row above.
+        if (py > 0)
+        {
+            for (int x = lx; x <= rx; ++x)
             {
-                size_t ni = idx - w;
-                if (!visited[ni]) { visited[ni] = 1; stack.push_back(ni); }
-            }
-            if (y + 1 < h)
-            {
-                size_t ni = idx + w;
-                if (!visited[ni]) { visited[ni] = 1; stack.push_back(ni); }
+                size_t ni = idx(x, py - 1);
+                if (cpu[ni] == tr && cpu[ni + 1] == tg && cpu[ni + 2] == tb)
+                {
+                    cpu[ni] = color.r;
+                    cpu[ni + 1] = color.g;
+                    cpu[ni + 2] = color.b;
+                    cpu[ni + 3] = 255;
+                    stack.push_back(ni);
+                }
             }
         }
-    }
 
-    for (int y = 0; y < h; ++y)
-    {
-        uint8_t *dst = &cpu[((size_t)(fy0 + y) * gridMax + fx0) * 4];
-        std::memcpy(dst, px + (size_t)y * w * 4, (size_t)w * 4);
+        // Push matching pixels in the row below.
+        if (py + 1 < h)
+        {
+            for (int x = lx; x <= rx; ++x)
+            {
+                size_t ni = idx(x, py + 1);
+                if (cpu[ni] == tr && cpu[ni + 1] == tg && cpu[ni + 2] == tb)
+                {
+                    cpu[ni] = color.r;
+                    cpu[ni + 1] = color.g;
+                    cpu[ni + 2] = color.b;
+                    cpu[ni + 3] = 255;
+                    stack.push_back(ni);
+                }
+            }
+        }
     }
 }
 

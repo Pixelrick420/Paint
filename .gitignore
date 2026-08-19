@@ -1,7 +1,8 @@
-graphify-out/
-paint
-*.o
 AGENTS.md
 .agents-md.sha256
-.gitattributes
 .dev-agent/
+frame_*.bmp
+.gitattributes
+graphify-out/
+*.o
+paint

@@ -18,6 +18,7 @@ void PaintApp::zoomAt(int mx, int my, float factor)
         return;
     camX = wxm - mx / zoom;
     camY = wym - (my - MENU_HEIGHT) / zoom;
+    clampCamera();
     dirty = true;
     setCursorForTool();
 }
@@ -116,18 +117,22 @@ void PaintApp::handleKey(const SDL_KeyboardEvent &key)
         break;
     case SDLK_LEFT:
         camX -= 40.0f / zoom;
+        clampCamera();
         dirty = true;
         break;
     case SDLK_RIGHT:
         camX += 40.0f / zoom;
+        clampCamera();
         dirty = true;
         break;
     case SDLK_UP:
         camY -= 40.0f / zoom;
+        clampCamera();
         dirty = true;
         break;
     case SDLK_DOWN:
         camY += 40.0f / zoom;
+        clampCamera();
         dirty = true;
         break;
     default:
@@ -188,6 +193,7 @@ void PaintApp::handleInput()
                     if (tool == 6)
                     {
                         canvas.floodFill(wx, wy, color);
+                        dirty = true;
                     }
                     else
                     {
@@ -276,6 +282,7 @@ void PaintApp::handleInput()
             {
                 camX = panStartCamX - (float)(lastMouseX - panStartMX) / zoom;
                 camY = panStartCamY - (float)(lastMouseY - panStartMY) / zoom;
+                clampCamera();
                 dirty = true;
             }
             else if (mode == 1 && tool <= 2 && lastMouseY >= MENU_HEIGHT + STATUS_STRIP_H)
@@ -298,11 +305,13 @@ void PaintApp::handleInput()
             else if (SDL_GetModState() & KMOD_SHIFT)
             {
                 camX += e.wheel.y * SCROLL_PAN / zoom;
+                clampCamera();
                 dirty = true;
             }
             else
             {
                 camY += e.wheel.y * SCROLL_PAN / zoom;
+                clampCamera();
                 dirty = true;
             }
             break;
@@ -318,22 +327,23 @@ void PaintApp::setCursor(int type)
 {
     const char *file = nullptr;
     int hotX = 0, hotY = 0;
-    bool scaleToThickness = false;
+    bool hotspotCenter = false;
     switch (type)
     {
     case 0: // pencil tip (bottom-left of the diagonal icon)
         file = "pencil.bmp";
-        hotX = 0;
-        hotY = 31;
         break;
     case 1: // crosshair center
         file = "point.bmp";
-        hotX = 8;
-        hotY = 8;
+        hotspotCenter = true;
         break;
-    case 2: // eraser, sized with the current thickness
+    case 2: // eraser
         file = "eraser.bmp";
-        scaleToThickness = true;
+        hotspotCenter = true;
+        break;
+    case 3: // fill (paint bucket)
+        file = "fill.bmp";
+        hotspotCenter = true;
         break;
     default:
         SDL_SetCursor(SDL_GetDefaultCursor());
@@ -345,15 +355,14 @@ void PaintApp::setCursor(int type)
         return; // asset missing - keep the default cursor
 
     SDL_Surface *cursorSurf = icon;
-    if (scaleToThickness)
+    int size = std::max(24, effectiveThickness() * 3);
+    if (size != icon->w || size != icon->h)
     {
-        int size = std::max(4, effectiveThickness() * 3);
         SDL_Surface *conv = SDL_ConvertSurfaceFormat(icon, SDL_PIXELFORMAT_ARGB8888, 0);
         if (conv != nullptr)
         {
             cursorSurf = SDL_CreateRGBSurfaceWithFormat(
                 0, size, size, 32, SDL_PIXELFORMAT_ARGB8888);
-            // Nearest-neighbor scale to keep the pixel art crisp.
             for (int y = 0; y < size; ++y)
             {
                 const uint8_t *s = (const uint8_t *)conv->pixels +
@@ -369,11 +378,22 @@ void PaintApp::setCursor(int type)
                     dp[3] = sp[3];
                 }
             }
-            hotX = size / 2;
-            hotY = size / 2;
             SDL_FreeSurface(conv);
         }
     }
+
+    if (hotspotCenter)
+    {
+        hotX = (cursorSurf != nullptr ? cursorSurf->w : size) / 2;
+        hotY = (cursorSurf != nullptr ? cursorSurf->h : size) / 2;
+    }
+    else
+    {
+        // Pencil: hotspot at the tip (bottom-left corner of the icon).
+        hotX = 0;
+        hotY = (cursorSurf != nullptr ? cursorSurf->h : size) - 1;
+    }
+
     SDL_Cursor *cursor = SDL_CreateColorCursor(cursorSurf, hotX, hotY);
     if (cursor != nullptr)
         SDL_SetCursor(cursor);
@@ -385,11 +405,13 @@ void PaintApp::setCursor(int type)
 void PaintApp::setCursorForTool()
 {
     if (tool == 2)
-        setCursor(2);
+        setCursor(2); // eraser
     else if (tool == 1)
-        setCursor(0);
+        setCursor(0); // pencil
+    else if (tool == 6)
+        setCursor(3); // fill
     else
-        setCursor(1);
+        setCursor(1); // crosshair
 }
 
 void PaintApp::handleMenuClick(int mx, int my)
