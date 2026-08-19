@@ -1,5 +1,8 @@
 #include <SDL2/SDL.h>
+#if __has_include(<SDL2/SDL_ttf.h>)
 #include <SDL2/SDL_ttf.h>
+#define HAS_SDL_TTF 1
+#endif
 
 #include <algorithm>
 #include <cstdlib>
@@ -59,10 +62,12 @@ PaintApp::PaintApp()
 
     menuTex = buildMenuTexture();
 
+#ifdef HAS_SDL_TTF
     if (TTF_Init() == 0)
         buildHelpTexture();
     else
         std::cerr << "TTF_Init failed: " << TTF_GetError() << std::endl;
+#endif
 }
 
 PaintApp::~PaintApp()
@@ -71,11 +76,13 @@ PaintApp::~PaintApp()
     SDL_DestroyTexture(helpTitleTex);
     SDL_DestroyTexture(menuTex);
     SDL_DestroyTexture(canvasTex);
+#ifdef HAS_SDL_TTF
     if (helpFont != nullptr)
         TTF_CloseFont(helpFont);
+    TTF_Quit();
+#endif
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
-    TTF_Quit();
     SDL_Quit();
 }
 
@@ -228,6 +235,7 @@ void PaintApp::smokeTest()
 
 void PaintApp::buildHelpTexture()
 {
+#ifdef HAS_SDL_TTF
     static const char *fontCandidates[] = {
         "/usr/share/fonts/liberation-sans-fonts/LiberationSans-Regular.ttf",
         "/usr/share/fonts/google-noto-vf/NotoSans[wght].ttf",
@@ -341,6 +349,7 @@ void PaintApp::buildHelpTexture()
     int panelH = std::clamp(HEADER + bodyH + 2 * PAD, 0, SCREEN_HEIGHT - 40);
     helpPanel = { (SCREEN_WIDTH - panelW) / 2, (SCREEN_HEIGHT - panelH) / 2, panelW, panelH };
     helpClose = { helpPanel.x + helpPanel.w - 34, helpPanel.y + 8, 26, 26 };
+#endif
 }
 
 void PaintApp::drawHelpPopup()

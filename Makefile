@@ -1,7 +1,13 @@
 CXX      := g++
 CXXFLAGS := -std=c++23 -O2 -Wall -Wextra -Isrc
-SDL_CFLAGS := $(shell pkg-config --cflags sdl2 SDL2_ttf)
-SDL_LIBS   := $(shell pkg-config --libs sdl2 SDL2_ttf)
+SDL_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)
+SDL_LIBS   := $(shell pkg-config --libs sdl2 2>/dev/null)
+TTF_CFLAGS := $(shell pkg-config --cflags SDL2_ttf 2>/dev/null)
+TTF_LIBS   := $(shell pkg-config --libs SDL2_ttf 2>/dev/null)
+ifneq ($(TTF_LIBS),)
+  SDL_CFLAGS += $(TTF_CFLAGS)
+  SDL_LIBS   += $(TTF_LIBS)
+endif
 
 TARGET := paint
 SRC    := paint.cpp src/app/app.cpp src/app/render.cpp \

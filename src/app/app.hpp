@@ -1,7 +1,10 @@
 #pragma once
 
 #include <SDL2/SDL.h>
+#if __has_include(<SDL2/SDL_ttf.h>)
 #include <SDL2/SDL_ttf.h>
+#define HAS_SDL_TTF 1
+#endif
 
 #include <algorithm>
 #include <cmath>
@@ -27,7 +30,9 @@ private:
     int gridMax{MAX_GRID};
 
     // Help popup (opened with Ctrl+/)
+#ifdef HAS_SDL_TTF
     TTF_Font *helpFont{nullptr};
+#endif
     SDL_Texture *helpTex{nullptr};      // body text
     SDL_Texture *helpTitleTex{nullptr}; // "Help" title
     SDL_Rect helpPanel{0, 0, 0, 0};     // popup panel rect (screen coords)
