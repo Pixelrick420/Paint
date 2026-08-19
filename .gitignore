@@ -6,3 +6,4 @@ frame_*.bmp
 graphify-out/
 *.o
 paint
+paint_*.bmp

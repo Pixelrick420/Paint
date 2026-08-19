@@ -300,17 +300,17 @@ void PaintApp::handleInput()
         case SDL_MOUSEWHEEL:
             if (SDL_GetModState() & KMOD_CTRL)
             {
-                zoomAt(lastMouseX, lastMouseY, e.wheel.y > 0 ? 1.1f : 1.0f / 1.1f);
+                zoomAt(lastMouseX, lastMouseY, e.wheel.y > 0 ? 1.0f / 1.1f : 1.1f);
             }
             else if (SDL_GetModState() & KMOD_SHIFT)
             {
-                camX += e.wheel.y * SCROLL_PAN / zoom;
+                camX -= e.wheel.y * SCROLL_PAN / zoom;
                 clampCamera();
                 dirty = true;
             }
             else
             {
-                camY += e.wheel.y * SCROLL_PAN / zoom;
+                camY -= e.wheel.y * SCROLL_PAN / zoom;
                 clampCamera();
                 dirty = true;
             }
