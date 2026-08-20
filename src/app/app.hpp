@@ -69,7 +69,6 @@ private:
     bool previewing{false};
     SDL_Point shapeStart = {-1, -1};
     Uint32 saveFlashUntil{0};
-    Uint32 thickFlashUntil{0};
 
     Canvas canvas;
 

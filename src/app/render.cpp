@@ -148,16 +148,9 @@ void PaintApp::drawStatusStrip()
     SDL_Rect menuLine = {0, MENU_HEIGHT - 1, SCREEN_WIDTH, 1};
     SDL_RenderFillRect(renderer, &menuLine);
 
-    if (SDL_GetTicks() < thickFlashUntil)
-    {
-        SDL_SetRenderDrawColor(renderer, 255, 235, 130, 255);
-        SDL_Rect fl = {6, MENU_HEIGHT + 5, 8 + 380 + 8, STATUS_STRIP_H - 10};
-        SDL_RenderFillRect(renderer, &fl);
-    }
-
     int eff = effectiveThickness();
     int len = std::clamp(8 + eff * 4, 8, 380);
-    int th = 2;
+    int th = 8;
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, 255);
     SDL_Rect bar = {12, MENU_HEIGHT + STATUS_STRIP_H / 2 - th / 2, len, th};
     SDL_RenderFillRect(renderer, &bar);

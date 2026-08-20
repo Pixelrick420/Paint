@@ -237,8 +237,12 @@ void PaintApp::buildHelpTexture()
 {
 #ifdef HAS_SDL_TTF
     static const char *fontCandidates[] = {
+        "/usr/share/fonts/liberation-sans-fonts/LiberationMono-Regular.ttf",
+        "/usr/share/fonts/google-noto/NotoSansMono[wght].ttf",
+        "/usr/share/fonts/dejavu/DejaVuSansMono.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+        "/usr/share/fonts/TTF/DejaVuSansMono.ttf",
         "/usr/share/fonts/liberation-sans-fonts/LiberationSans-Regular.ttf",
-        "/usr/share/fonts/google-noto-vf/NotoSans[wght].ttf",
         "/usr/share/fonts/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/TTF/DejaVuSans.ttf",
@@ -247,7 +251,7 @@ void PaintApp::buildHelpTexture()
     {
         if (access(path, R_OK) != 0)
             continue;
-        helpFont = TTF_OpenFont(path, 14);
+        helpFont = TTF_OpenFont(path, 18);
         if (helpFont != nullptr)
             break;
     }
@@ -257,42 +261,34 @@ void PaintApp::buildHelpTexture()
         return;
     }
 
+    TTF_SetFontStyle(helpFont, TTF_STYLE_BOLD);
+
     static const char *lines[] = {
-        "MOUSE",
-        "- Click a tool or a color in the menu to select it.",
-        "- Left-click and drag to draw with the pencil tool.",
-        "- Use the eraser tool to erase parts of the drawing.",
-        "- Line, circle, rectangle: click once for the start and once",
-        "  for the end of the shape; a preview follows the mouse.",
-        "- Fill (bucket) tool: click inside a region to flood-fill it.",
-        "- Ctrl + mouse wheel: zoom in/out at the cursor.",
-        "- Mouse wheel: scroll up/down.  Shift + mouse wheel: left/right.",
-        "- Drag the scroll bars (right / bottom edges) to scroll the canvas.",
-        "- Middle-mouse drag or arrow keys: pan the canvas.",
+        "DRAWING",
+        "  Left-click and drag to draw with pencil or eraser.",
+        "  Shapes (line, circle, rect): click start point, then end point.",
+        "  Fill (bucket): click inside a region to fill it.",
         "",
-        "KEYBOARD",
-        "- [1-7]: Select a color.",
-        "- [C]: Clear the canvas.",
-        "- [Z] / [X]: Increase / decrease line thickness.",
-        "- [F]: Select the fill (bucket) tool.",
-        "- [Ctrl+S]: Save the drawing as a BMP.",
-        "- [Ctrl+G]: Toggle the grid.",
-        "- [Ctrl+/]: Show this help popup.",
+        "NAVIGATION",
+        "  Mouse wheel: scroll up/down."
+	"  Shift+wheel: scroll left/right.",
+        "  Middle-mouse drag: pan.  Arrow keys: pan.",
+        "  Scroll bars: drag the bars on the right/bottom edges.",
         "",
-        "MENU",
-        "Tools (left):   Row 1: Pencil, Line, Rectangle",
-        "                Row 2: Eraser, Circle, Fill",
-        "Colors (right): Row 1: Black, Blue, Yellow, Gray",
-        "                Row 2: Purple, Green, Red, White",
+        "TOOLS & COLORS",
+        "  [1-7]      Select color",
+	"  [Z]/[X]    Thickness +/-",
+        "  [F]        Fill tool",
+        "  [C]        Clear canvas",
         "",
-        "Click the X (top-right), press Esc, or click outside the popup to close.",
-        "",
-        "The canvas grows in any direction as you move toward its edges,",
-        "up to a maximum size, after which no new cells are generated.",
+        "FILE",
+        "  [Ctrl+S]   Save as BMP",
+        "  [Ctrl+G]   Toggle grid",
+        "  [Ctrl+/]   Show this help"
     };
 
     constexpr int PAD = 20;
-    constexpr int HEADER = 44;
+    constexpr int HEADER = 56;
     const SDL_Color textColor{230, 230, 230, 255};
     const SDL_Color titleColor{255, 255, 255, 255};
 
@@ -305,10 +301,10 @@ void PaintApp::buildHelpTexture()
         if (s == nullptr)
             continue;
         bodyW = std::max(bodyW, s->w);
-        bodyH += s->h + 2;
+        bodyH += s->h + 4;
         lineSurfs.push_back(s);
     }
-    bodyH -= 2;
+    bodyH -= 4;
 
     SDL_Surface *body = SDL_CreateRGBSurfaceWithFormat(
         0, bodyW, bodyH, 32, SDL_PIXELFORMAT_ARGB8888);
@@ -320,7 +316,7 @@ void PaintApp::buildHelpTexture()
         {
             SDL_Rect dst{0, y, s->w, s->h};
             SDL_BlitSurface(s, nullptr, body, &dst);
-            y += s->h + 2;
+            y += s->h + 4;
         }
     }
     for (SDL_Surface *s : lineSurfs)
@@ -329,14 +325,14 @@ void PaintApp::buildHelpTexture()
     if (body != nullptr)
         helpTex = SDL_CreateTextureFromSurface(renderer, body);
 
-    TTF_SetFontSize(helpFont, 20);
+    TTF_SetFontSize(helpFont, 28);
     SDL_Surface *title = TTF_RenderUTF8_Blended(helpFont, "Paint - Help", titleColor);
     if (title != nullptr)
     {
         helpTitleTex = SDL_CreateTextureFromSurface(renderer, title);
         SDL_FreeSurface(title);
     }
-    TTF_SetFontSize(helpFont, 14);
+    TTF_SetFontSize(helpFont, 18);
 
     if (body != nullptr)
         SDL_FreeSurface(body);
@@ -345,7 +341,7 @@ void PaintApp::buildHelpTexture()
     if (helpTitleTex != nullptr)
         SDL_QueryTexture(helpTitleTex, nullptr, nullptr, &titleW, &titleH);
 
-    int panelW = std::clamp(std::max(bodyW, titleW) + 2 * PAD, 0, SCREEN_WIDTH - 40);
+    int panelW = std::max(std::max(bodyW, titleW) + 2 * PAD, 600);
     int panelH = std::clamp(HEADER + bodyH + 2 * PAD, 0, SCREEN_HEIGHT - 40);
     helpPanel = { (SCREEN_WIDTH - panelW) / 2, (SCREEN_HEIGHT - panelH) / 2, panelW, panelH };
     helpClose = { helpPanel.x + helpPanel.w - 34, helpPanel.y + 8, 26, 26 };
@@ -370,7 +366,7 @@ void PaintApp::drawHelpPopup()
     // Title + body text.
     if (helpTitleTex != nullptr)
     {
-        SDL_Rect dst{helpPanel.x + 20, helpPanel.y + 12, 0, 0};
+        SDL_Rect dst{helpPanel.x + 20, helpPanel.y + 14, 0, 0};
         SDL_QueryTexture(helpTitleTex, nullptr, nullptr, &dst.w, &dst.h);
         SDL_RenderCopy(renderer, helpTitleTex, nullptr, &dst);
     }
@@ -378,7 +374,7 @@ void PaintApp::drawHelpPopup()
     {
         int w = 0, h = 0;
         SDL_QueryTexture(helpTex, nullptr, nullptr, &w, &h);
-        SDL_Rect dst{helpPanel.x + 20, helpPanel.y + 44, w, h};
+        SDL_Rect dst{helpPanel.x + 20, helpPanel.y + 56, w, h};
         SDL_RenderCopy(renderer, helpTex, nullptr, &dst);
     }
 

@@ -99,12 +99,10 @@ void PaintApp::handleKey(const SDL_KeyboardEvent &key)
         break;
     case SDLK_z:
         thickness = std::clamp(thickness + 1, 1, MAX_LINE_THICKNESS);
-        thickFlashUntil = SDL_GetTicks() + 600;
         setCursorForTool();
         break;
     case SDLK_x:
         thickness = std::clamp(thickness - 1, 1, MAX_LINE_THICKNESS);
-        thickFlashUntil = SDL_GetTicks() + 600;
         setCursorForTool();
         break;
     case SDLK_f:
