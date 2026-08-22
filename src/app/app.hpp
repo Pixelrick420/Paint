@@ -87,7 +87,7 @@ private:
     int scrollDragStartX{0}, scrollDragStartY{0};
     float scrollDragStartCamX{0}, scrollDragStartCamY{0};
 
-    Color color{0, 0, 0};
+    Color color{colors[BLACK]};
     bool drawing{false}; // left button held on canvas
     Tool tool{Tool::Pencil};
     int thickness{2};

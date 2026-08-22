@@ -158,7 +158,7 @@ SDL_Texture *PaintApp::buildMenuTexture()
 void PaintApp::clearScreen()
 {
     points.clear();
-    color = {0, 0, 0};
+    color = colors[BLACK];
     drawing = false;
     tool = Tool::Pencil;
     thickness = 2;
