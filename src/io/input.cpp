@@ -148,8 +148,7 @@ void PaintApp::handleInput()
                 lastMouseY = my;
                 if (helpOpen)
                 {
-                    // Clicks while the help popup is open either close it
-                    // (close button or outside the panel) or are swallowed.
+                    // A click closes the popup or is swallowed.
                     if (mx >= helpClose.x && mx < helpClose.x + helpClose.w &&
                         my >= helpClose.y && my < helpClose.y + helpClose.h)
                         closeHelp();
@@ -304,18 +303,18 @@ void PaintApp::setCursor(int type)
     bool hotspotCenter = false;
     switch (type)
     {
-    case 0: // pencil tip (bottom-left of the diagonal icon)
+    case 0: // pencil tip sits at the icon bottom-left
         file = "pencil.bmp";
         break;
-    case 1: // crosshair center
+    case 1:
         file = "point.bmp";
         hotspotCenter = true;
         break;
-    case 2: // eraser
+    case 2:
         file = "eraser.bmp";
         hotspotCenter = true;
         break;
-    case 3: // fill (paint bucket)
+    case 3:
         file = "fill.bmp";
         hotspotCenter = true;
         break;
@@ -326,7 +325,7 @@ void PaintApp::setCursor(int type)
 
     SurfacePtr icon{SDL_LoadBMP(assetPath(file).c_str())};
     if (icon == nullptr)
-        return; // asset missing - keep the default cursor
+        return; // asset missing; keep current cursor
 
     int size = std::max(CURSOR_MIN_SIZE, effectiveThickness() * CURSOR_THICKNESS_SCALE);
     SDL_Surface *cursorSurf = icon.get();
@@ -370,7 +369,6 @@ void PaintApp::setCursor(int type)
     }
     else
     {
-        // Pencil: hotspot at the tip (bottom-left corner of the icon).
         hotX = 0;
         hotY = cursorSurf->h - 1;
     }
@@ -403,7 +401,7 @@ void PaintApp::handleMenuClick(int mx, int my)
 {
     shapeStart = {-1, -1};
 
-    // Tools: left-aligned cluster.
+    // Tool cluster, left side.
     for (const ToolSlot &slot : toolSlots)
     {
         SDL_Rect r = toolSlotRect(slot);
@@ -416,7 +414,7 @@ void PaintApp::handleMenuClick(int mx, int my)
         return;
     }
 
-    // Colors: right-aligned block.
+    // Color block, right side.
     for (int i = 0; i < NUM_COLORS; ++i)
     {
         SDL_Rect r = menuColorRect(i);

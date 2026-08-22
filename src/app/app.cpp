@@ -88,9 +88,8 @@ PaintApp::~PaintApp()
 namespace
 {
 
-// Alpha-composite an ARGB surface onto dst at (cx, cy) (centered).
-// Assumes dst is SDL_PIXELFORMAT_ARGB8888 and blits over an opaque white
-// background, so the output alpha is always 255.
+// Alpha-blends icon onto dst at (cx,cy), centered.
+// dst must be ARGB8888 over opaque white; output alpha stays 255.
 void compositeIcon(SDL_Surface *dst, const SurfacePtr &icon, int cx, int cy)
 {
     SurfacePtr conv{SDL_ConvertSurfaceFormat(icon.get(), SDL_PIXELFORMAT_ARGB8888, 0)};
@@ -122,7 +121,7 @@ void compositeIcon(SDL_Surface *dst, const SurfacePtr &icon, int cx, int cy)
     }
 }
 
-} // namespace
+}
 
 SDL_Texture *PaintApp::buildMenuTexture()
 {
@@ -130,7 +129,7 @@ SDL_Texture *PaintApp::buildMenuTexture()
         0, SCREEN_WIDTH, MENU_HEIGHT, 32, SDL_PIXELFORMAT_ARGB8888)};
     if (surf == nullptr)
         return nullptr;
-    SDL_memset(surf->pixels, 255, static_cast<size_t>(surf->pitch) * surf->h); // opaque white
+    SDL_memset(surf->pixels, 255, static_cast<size_t>(surf->pitch) * surf->h); // white
 
     for (const ToolSlot &slot : toolSlots)
     {
@@ -328,16 +327,14 @@ void PaintApp::drawHelpPopup()
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(renderer, HELP_DIM.r, HELP_DIM.g, HELP_DIM.b, HELP_DIM_ALPHA);
-    SDL_RenderFillRect(renderer, nullptr); // dim everything behind the popup
+    SDL_RenderFillRect(renderer, nullptr);
 
-    // Panel.
     SDL_SetRenderDrawColor(renderer, HELP_PANEL_BG.r, HELP_PANEL_BG.g, HELP_PANEL_BG.b, 255);
     SDL_RenderFillRect(renderer, &helpPanel);
     SDL_SetRenderDrawColor(renderer, HELP_PANEL_BORDER.r, HELP_PANEL_BORDER.g,
                            HELP_PANEL_BORDER.b, 255);
     SDL_RenderDrawRect(renderer, &helpPanel);
 
-    // Title + body text.
     if (helpTitleTex != nullptr)
     {
         SDL_Rect dst{helpPanel.x + HELP_PAD, helpPanel.y + HELP_TITLE_OFFSET_Y, 0, 0};
@@ -352,7 +349,6 @@ void PaintApp::drawHelpPopup()
         SDL_RenderCopy(renderer, helpTex, nullptr, &dst);
     }
 
-    // Close button (X).
     SDL_SetRenderDrawColor(renderer, HELP_CLOSE_BG.r, HELP_CLOSE_BG.g, HELP_CLOSE_BG.b, 255);
     SDL_RenderFillRect(renderer, &helpClose);
     SDL_SetRenderDrawColor(renderer, HELP_CLOSE_MARK.r, HELP_CLOSE_MARK.g, HELP_CLOSE_MARK.b, 255);

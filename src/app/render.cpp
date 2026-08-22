@@ -11,8 +11,7 @@ namespace paint
 namespace
 {
 
-// Saves the renderer's clip rect (if any), applies a new one for the object's
-// lifetime, and restores it on scope exit.
+// Applies a clip rect and restores the prior clip on scope exit.
 class ScopedClip
 {
 public:
@@ -35,7 +34,7 @@ private:
     bool hadClip = false;
 };
 
-// Grid line shade by cell index tier (every 10th cell darkest).
+// Grid line color by cell index tier.
 SDL_Color gridLineColor(int idx)
 {
     if (idx % 10 == 0)
@@ -45,7 +44,7 @@ SDL_Color gridLineColor(int idx)
     return {GRID_LINE.r, GRID_LINE.g, GRID_LINE.b, 255};
 }
 
-} // namespace
+}
 
 void PaintApp::drawCanvasView()
 {

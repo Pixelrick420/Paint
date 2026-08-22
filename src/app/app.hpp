@@ -20,7 +20,7 @@
 namespace paint
 {
 
-// Owning handle to an SDL_Surface freed on scope exit.
+// Owns an SDL_Surface; frees it on scope exit.
 struct SDLSurfaceDeleter
 {
     void operator()(SDL_Surface *surface) const { SDL_FreeSurface(surface); }
@@ -28,7 +28,7 @@ struct SDLSurfaceDeleter
 
 using SurfacePtr = std::unique_ptr<SDL_Surface, SDLSurfaceDeleter>;
 
-// Which scroll bar (if any) is being dragged.
+// Scroll bar drag state.
 enum class ScrollDrag
 {
     None = 0,
@@ -36,13 +36,13 @@ enum class ScrollDrag
     Horizontal,
 };
 
-// Visible world-space rectangle: [l, r) x [t, b).
+// Visible world rect: [l,r) x [t,b).
 struct ViewRect
 {
     float l, t, r, b;
 };
 
-// Thumb geometry for one scroll bar.
+// Scroll bar thumb geometry.
 struct ScrollMetrics
 {
     float thumbLen;
@@ -52,34 +52,31 @@ struct ScrollMetrics
 class PaintApp
 {
 private:
-    // SDL resources ---------------------------------------------------------
     SDL_Window *window{nullptr};
     SDL_Renderer *renderer{nullptr};
     SDL_Texture *canvasTex{nullptr};
     SDL_Texture *menuTex{nullptr};
     int gridMax{MAX_GRID};
 
-    // Help popup (opened with Ctrl+/)
+    // Help popup (Ctrl+/)
 #ifdef HAS_SDL_TTF
     TTF_Font *helpFont{nullptr};
 #endif
-    SDL_Texture *helpTex{nullptr};      // body text
-    SDL_Texture *helpTitleTex{nullptr}; // "Help" title
-    SDL_Rect helpPanel{0, 0, 0, 0};     // popup panel rect (screen coords)
-    SDL_Rect helpClose{0, 0, 0, 0};     // close-button rect (screen coords)
+    SDL_Texture *helpTex{nullptr};
+    SDL_Texture *helpTitleTex{nullptr};
+    SDL_Rect helpPanel{0, 0, 0, 0}; // screen coords
+    SDL_Rect helpClose{0, 0, 0, 0}; // screen coords
     bool helpOpen{false};
 
-    // Pending stroke points (world coords) until the next texture upload.
+    // Stroke points in world coords, pending texture upload.
     std::deque<SDL_Point> points;
     std::vector<uint8_t> fillBuf;
-    std::vector<uint8_t> uploadBuf; // RGBA -> ABGR texture staging buffer
-    bool dirty{true};               // canvas or view changed since last texture upload
+    std::vector<uint8_t> uploadBuf; // staging buffer; swizzles RGBA to ABGR
+    bool dirty{true};               // canvas or view changed since last upload
     SDL_Rect lastClip{0, 0, -1, -1};
 
-    // Camera / world
     float camX{0}, camY{0}, zoom{1.0f};
 
-    // Input / interaction state
     int lastMouseX{0}, lastMouseY{0};
     int lastWorldX{0}, lastWorldY{0};
     bool panning{false};
@@ -91,7 +88,7 @@ private:
     float scrollDragStartCamX{0}, scrollDragStartCamY{0};
 
     Color color{0, 0, 0};
-    bool drawing{false}; // left mouse button held on the canvas
+    bool drawing{false}; // left button held on canvas
     Tool tool{Tool::Pencil};
     int thickness{2};
     bool quit{false};
@@ -102,7 +99,6 @@ private:
 
     Canvas canvas;
 
-    // View / coordinate helpers ---------------------------------------------
     [[nodiscard]] float viewWidth() const { return static_cast<float>(SCREEN_WIDTH) / zoom; }
 
     [[nodiscard]] float viewHeight() const
@@ -149,7 +145,7 @@ private:
                 (i / MENU_COLORS_PER_ROW) * ROW_HEIGHT, TOOL_WIDTH, ROW_HEIGHT};
     }
 
-    // Thumb length / travel range for a scroll bar over worldLen with trackLen.
+    // Thumb length and travel for the given lengths.
     [[nodiscard]] static ScrollMetrics scrollMetrics(float worldLen, float viewLen,
                                                      float trackLen)
     {
@@ -167,10 +163,8 @@ private:
         return static_cast<float>(SCREEN_WIDTH - SCROLLBAR_W);
     }
 
-    // Dispatch to line/circle/rectangle based on the current shape tool.
     void drawShape(int x1, int y1, int x2, int y2);
 
-    // Drawing tools (draw.cpp) ----------------------------------------------
     void drawPoint(int wx, int wy);
     void drawLine(int x1, int y1, int x2, int y2);
     void drawCircle(int cx, int cy, int x, int y);
@@ -179,7 +173,6 @@ private:
     void saveCanvasBMP();
     void ensureCanvasCoversView();
 
-    // Rendering (render.cpp) --------------------------------------------------
     void setDrawColor(uint8_t grey);
     void drawCanvasView();
     void drawGrid();
@@ -190,13 +183,11 @@ private:
     void drawScrollBars();
     void drawScreen();
 
-    // Help popup (app.cpp) -----------------------------------------------------
     void buildHelpTexture();
     void drawHelpPopup();
     void toggleHelp() { helpOpen = !helpOpen; }
     void closeHelp() { helpOpen = false; }
 
-    // Input (input.cpp) ----------------------------------------------------------
     void zoomAt(int mx, int my, float factor);
     void beginScrollDrag(ScrollDrag axis, int mx, int my);
     void handleKey(const SDL_KeyboardEvent &key);
@@ -205,7 +196,6 @@ private:
     void setCursorForTool();
     void handleMenuClick(int mx, int my);
 
-    // Lifecycle (app.cpp) ---------------------------------------------------------
     [[nodiscard]] SDL_Texture *buildMenuTexture();
     void clearScreen();
 

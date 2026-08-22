@@ -19,7 +19,7 @@ void putU32(uint8_t *dst, uint32_t v) { std::memcpy(dst, &v, sizeof(v)); }
 
 constexpr uint32_t BMP_HEADER_SIZE = 54;
 
-} // namespace
+}
 
 bool writeBMPFile(const std::string &name, const uint8_t *rgba, int w, int h)
 {

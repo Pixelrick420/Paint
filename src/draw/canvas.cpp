@@ -141,7 +141,6 @@ void Canvas::floodFill(int wx, int wy, Color color)
         int px = (int)((pi / 4) % (size_t)gridMax) - fx0;
         int py = (int)((pi / 4) / (size_t)gridMax) - fy0;
 
-        // Fill left.
         int lx = px - 1;
         while (lx >= 0)
         {
@@ -156,7 +155,6 @@ void Canvas::floodFill(int wx, int wy, Color color)
         }
         ++lx;
 
-        // Fill right.
         int rx = px + 1;
         while (rx < w)
         {
@@ -171,7 +169,6 @@ void Canvas::floodFill(int wx, int wy, Color color)
         }
         --rx;
 
-        // Push matching pixels in the row above.
         if (py > 0)
         {
             for (int x = lx; x <= rx; ++x)
@@ -185,7 +182,6 @@ void Canvas::floodFill(int wx, int wy, Color color)
             }
         }
 
-        // Push matching pixels in the row below.
         if (py + 1 < h)
         {
             for (int x = lx; x <= rx; ++x)

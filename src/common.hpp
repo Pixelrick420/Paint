@@ -19,16 +19,14 @@ enum class Tool
     Fill,
 };
 
-// A single tool slot in the menu. Row/col position is shared by the icon
-// compositor (buildMenuTexture) and the click hit-testing (handleMenuClick),
-// so the layout lives in exactly one place.
+// Menu slot layout shared by icon rendering and click hit-testing.
 struct ToolSlot
 {
     int row, col;
     Tool tool;
-    const char *icon;    // BMP asset name under assets/
-    bool forceColor;     // selecting this tool also forces the drawing color
-    int forceColorIndex; // palette index forced when forceColor is true
+    const char *icon;    // BMP file under assets/
+    bool forceColor;     // selecting this tool forces a palette color
+    int forceColorIndex; // forced palette index
 };
 
 inline constexpr int NUM_TOOLS = 6;
@@ -38,7 +36,7 @@ inline constexpr std::array<ToolSlot, NUM_TOOLS> toolSlots = {{
     {0, 2, Tool::Rectangle, "tool_rectangle.bmp", false, 0},
     {1, 0, Tool::Eraser, "tool_eraser.bmp", true, 7},
     {1, 1, Tool::Circle, "tool_circle.bmp", false, 0},
-    {1, 2, Tool::Fill, "tool_fill.bmp", false, 0}, // former help slot
+    {1, 2, Tool::Fill, "tool_fill.bmp", false, 0},
 }};
 
 inline constexpr std::array<Color, NUM_COLORS> colors = {{
@@ -52,10 +50,10 @@ inline constexpr std::array<Color, NUM_COLORS> colors = {{
     {255, 255, 255}  // white
 }};
 
-// Color order in the menu: top row even indices, bottom row odd indices.
+// Menu order: top row even palette indices, bottom row odd.
 inline constexpr std::array<int, NUM_COLORS> menuColorOrder = {{0, 2, 4, 6, 1, 3, 5, 7}};
 
-// Euclidean division with floor semantics (works for negative operands).
+// Floor division; correct for negative operands.
 [[nodiscard]] constexpr int floorDiv(int a, int b)
 {
     int q = a / b;
