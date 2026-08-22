@@ -52,7 +52,7 @@ inline constexpr int HELP_FONT_SIZE = 18;
 inline constexpr int HELP_TITLE_FONT_SIZE = 28;
 inline constexpr int HELP_PAD = 20;      // panel padding and title/body x offset
 inline constexpr int HELP_TITLE_OFFSET_Y = 14;
-inline constexpr int HELP_HEADER_H = 56; // header height and body y offset
+inline constexpr int HELP_HEADER_H = 66; // header height and body y offset
 inline constexpr int HELP_LINE_SPACING = 4;
 inline constexpr int HELP_MIN_PANEL_W = 600;
 inline constexpr int HELP_MAX_H_MARGIN = 40; // minimum bottom margin
@@ -60,6 +60,7 @@ inline constexpr int HELP_CLOSE_SIZE = 26;
 inline constexpr int HELP_CLOSE_MARGIN_R = 34;
 inline constexpr int HELP_CLOSE_MARGIN_T = 8;
 inline constexpr int HELP_CLOSE_CROSS_INSET = 7;
+inline constexpr int HELP_CLOSE_CROSS_THICK = 3; // parallel strokes per X diagonal
 
 inline constexpr int CURSOR_MIN_SIZE = 24;
 inline constexpr int CURSOR_THICKNESS_SCALE = 3; // cursor size = thickness * this
@@ -86,12 +87,12 @@ inline constexpr Color FLASH_BG{60, 200, 90};
 inline constexpr uint8_t FLASH_ALPHA = 130;
 
 inline constexpr Color HELP_DIM{0, 0, 0};
-inline constexpr uint8_t HELP_DIM_ALPHA = 160;
-inline constexpr Color HELP_PANEL_BG{30, 30, 46};
-inline constexpr Color HELP_PANEL_BORDER{140, 140, 160};
-inline constexpr Color HELP_CLOSE_BG{70, 70, 92};
-inline constexpr Color HELP_CLOSE_MARK{230, 230, 230};
-inline constexpr Color HELP_TITLE_TEXT{255, 255, 255};
-inline constexpr Color HELP_BODY_TEXT{230, 230, 230};
+inline constexpr uint8_t HELP_DIM_ALPHA = 90;
+inline constexpr Color HELP_PANEL_BG{238, 238, 238};  // matches STATUS_BG
+inline constexpr Color HELP_PANEL_BORDER{180, 180, 180}; // matches STATUS_EDGE
+inline constexpr Color HELP_CLOSE_BG{237, 28, 36};   // matches palette RED
+inline constexpr Color HELP_CLOSE_MARK{255, 255, 255};
+inline constexpr Color HELP_TITLE_TEXT{40, 40, 40};
+inline constexpr Color HELP_BODY_TEXT{60, 60, 60};
 
 }

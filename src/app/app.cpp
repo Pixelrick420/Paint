@@ -404,6 +404,10 @@ void PaintApp::drawHelpPopup()
     SDL_SetRenderDrawColor(renderer, HELP_PANEL_BORDER.r, HELP_PANEL_BORDER.g,
                            HELP_PANEL_BORDER.b, 255);
     SDL_RenderRect(renderer, &panel);
+    SDL_RenderLine(renderer, static_cast<float>(helpPanel.x + HELP_PAD),
+                   static_cast<float>(helpPanel.y + HELP_HEADER_H - 10),
+                   static_cast<float>(helpPanel.x + helpPanel.w - HELP_PAD),
+                   static_cast<float>(helpPanel.y + HELP_HEADER_H - 10));
 
     if (helpTitleTex != nullptr)
     {
@@ -426,14 +430,22 @@ void PaintApp::drawHelpPopup()
     SDL_FRect closeBox{static_cast<float>(helpClose.x), static_cast<float>(helpClose.y),
                        static_cast<float>(helpClose.w), static_cast<float>(helpClose.h)};
     SDL_RenderFillRect(renderer, &closeBox);
-    SDL_SetRenderDrawColor(renderer, HELP_CLOSE_MARK.r, HELP_CLOSE_MARK.g, HELP_CLOSE_MARK.b, 255);
+    SDL_SetRenderDrawColor(renderer, HELP_CLOSE_MARK.r, HELP_CLOSE_MARK.g, HELP_CLOSE_MARK.b,
+                           255);
     const int inset = HELP_CLOSE_CROSS_INSET;
     const int farX = helpClose.w - inset;
     const int farY = helpClose.h - inset;
-    SDL_RenderLine(renderer, static_cast<float>(helpClose.x + inset),
-                   static_cast<float>(helpClose.y + inset),
-                   static_cast<float>(helpClose.x + farX),
-                   static_cast<float>(helpClose.y + farY));
+    for (int i = 0; i < HELP_CLOSE_CROSS_THICK; ++i)
+    {
+        SDL_RenderLine(renderer, static_cast<float>(helpClose.x + inset + i),
+                       static_cast<float>(helpClose.y + inset),
+                       static_cast<float>(helpClose.x + farX + i),
+                       static_cast<float>(helpClose.y + farY));
+        SDL_RenderLine(renderer, static_cast<float>(helpClose.x + farX - i),
+                       static_cast<float>(helpClose.y + inset),
+                       static_cast<float>(helpClose.x + inset - i),
+                       static_cast<float>(helpClose.y + farY));
+    }
     SDL_RenderLine(renderer, static_cast<float>(helpClose.x + farX),
                    static_cast<float>(helpClose.y + inset),
                    static_cast<float>(helpClose.x + inset),

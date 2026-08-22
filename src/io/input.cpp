@@ -274,7 +274,7 @@ void PaintApp::handleInput()
             if (SDL_GetModState() & SDL_KMOD_CTRL)
             {
                 zoomAt(lastMouseX, lastMouseY,
-                       e.wheel.y > 0 ? 1.0f / ZOOM_STEP : ZOOM_STEP);
+                       e.wheel.y > 0 ? ZOOM_STEP : 1.0f / ZOOM_STEP);
             }
             else if (SDL_GetModState() & SDL_KMOD_SHIFT)
             {
