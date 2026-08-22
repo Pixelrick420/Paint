@@ -121,13 +121,17 @@ void Canvas::floodFill(int wx, int wy, Color color)
     if (tr == color.r && tg == color.g && tb == color.b)
         return;
 
+    auto paint = [&](size_t i) {
+        cpu[i] = color.r;
+        cpu[i + 1] = color.g;
+        cpu[i + 2] = color.b;
+        cpu[i + 3] = 255;
+    };
+
     std::vector<size_t> stack;
     stack.reserve(w);
     stack.push_back(si);
-    cpu[si] = color.r;
-    cpu[si + 1] = color.g;
-    cpu[si + 2] = color.b;
-    cpu[si + 3] = 255;
+    paint(si);
 
     while (!stack.empty())
     {
@@ -144,10 +148,7 @@ void Canvas::floodFill(int wx, int wy, Color color)
             size_t li = idx(lx, py);
             if (cpu[li] == tr && cpu[li + 1] == tg && cpu[li + 2] == tb)
             {
-                cpu[li] = color.r;
-                cpu[li + 1] = color.g;
-                cpu[li + 2] = color.b;
-                cpu[li + 3] = 255;
+                paint(li);
                 --lx;
             }
             else
@@ -162,10 +163,7 @@ void Canvas::floodFill(int wx, int wy, Color color)
             size_t ri = idx(rx, py);
             if (cpu[ri] == tr && cpu[ri + 1] == tg && cpu[ri + 2] == tb)
             {
-                cpu[ri] = color.r;
-                cpu[ri + 1] = color.g;
-                cpu[ri + 2] = color.b;
-                cpu[ri + 3] = 255;
+                paint(ri);
                 ++rx;
             }
             else
@@ -181,10 +179,7 @@ void Canvas::floodFill(int wx, int wy, Color color)
                 size_t ni = idx(x, py - 1);
                 if (cpu[ni] == tr && cpu[ni + 1] == tg && cpu[ni + 2] == tb)
                 {
-                    cpu[ni] = color.r;
-                    cpu[ni + 1] = color.g;
-                    cpu[ni + 2] = color.b;
-                    cpu[ni + 3] = 255;
+                    paint(ni);
                     stack.push_back(ni);
                 }
             }
@@ -198,10 +193,7 @@ void Canvas::floodFill(int wx, int wy, Color color)
                 size_t ni = idx(x, py + 1);
                 if (cpu[ni] == tr && cpu[ni + 1] == tg && cpu[ni + 2] == tb)
                 {
-                    cpu[ni] = color.r;
-                    cpu[ni + 1] = color.g;
-                    cpu[ni + 2] = color.b;
-                    cpu[ni + 3] = 255;
+                    paint(ni);
                     stack.push_back(ni);
                 }
             }

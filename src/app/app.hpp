@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdint>
 #include <deque>
+#include <memory>
 #include <vector>
 
 #include "common.hpp"
@@ -19,14 +20,43 @@
 namespace paint
 {
 
+// Owning handle to an SDL_Surface freed on scope exit.
+struct SDLSurfaceDeleter
+{
+    void operator()(SDL_Surface *surface) const { SDL_FreeSurface(surface); }
+};
+
+using SurfacePtr = std::unique_ptr<SDL_Surface, SDLSurfaceDeleter>;
+
+// Which scroll bar (if any) is being dragged.
+enum class ScrollDrag
+{
+    None = 0,
+    Vertical,
+    Horizontal,
+};
+
+// Visible world-space rectangle: [l, r) x [t, b).
+struct ViewRect
+{
+    float l, t, r, b;
+};
+
+// Thumb geometry for one scroll bar.
+struct ScrollMetrics
+{
+    float thumbLen;
+    float maxScroll;
+};
+
 class PaintApp
 {
 private:
     // SDL resources ---------------------------------------------------------
-    SDL_Window *window;
-    SDL_Renderer *renderer;
-    SDL_Texture *canvasTex;
-    SDL_Texture *menuTex;
+    SDL_Window *window{nullptr};
+    SDL_Renderer *renderer{nullptr};
+    SDL_Texture *canvasTex{nullptr};
+    SDL_Texture *menuTex{nullptr};
     int gridMax{MAX_GRID};
 
     // Help popup (opened with Ctrl+/)
@@ -43,7 +73,7 @@ private:
     std::deque<SDL_Point> points;
     std::vector<uint8_t> fillBuf;
     std::vector<uint8_t> uploadBuf; // RGBA -> ABGR texture staging buffer
-    bool dirty{true}; // canvas or view changed since last texture upload
+    bool dirty{true};               // canvas or view changed since last texture upload
     SDL_Rect lastClip{0, 0, -1, -1};
 
     // Camera / world
@@ -56,13 +86,13 @@ private:
     int panStartMX{0}, panStartMY{0};
     float panStartCamX{0}, panStartCamY{0};
 
-    int scrollDrag{0}; // 0 = none, 1 = vertical bar, 2 = horizontal bar
+    ScrollDrag scrollDrag{ScrollDrag::None};
     int scrollDragStartX{0}, scrollDragStartY{0};
     float scrollDragStartCamX{0}, scrollDragStartCamY{0};
 
     Color color{0, 0, 0};
-    int mode{0}; // 0 = not clicking, 1 = dragging a tool
-    int tool{1}; // 1=pencil, 2=eraser, 3=line, 4=circle, 5=rectangle, 6=fill
+    bool drawing{false}; // left mouse button held on the canvas
+    Tool tool{Tool::Pencil};
     int thickness{2};
     bool quit{false};
     bool showGrid{false};
@@ -72,44 +102,75 @@ private:
 
     Canvas canvas;
 
-    // Coordinate helpers ----------------------------------------------------
-    static int floorDiv(int a, int b)
+    // View / coordinate helpers ---------------------------------------------
+    [[nodiscard]] float viewWidth() const { return static_cast<float>(SCREEN_WIDTH) / zoom; }
+
+    [[nodiscard]] float viewHeight() const
     {
-        int q = a / b;
-        if (a % b != 0 && ((a < 0) != (b < 0)))
-            --q;
-        return q;
+        return static_cast<float>(SCREEN_HEIGHT - MENU_HEIGHT) / zoom;
     }
 
-    static int ceilDiv(int a, int b)
+    [[nodiscard]] ViewRect viewRect() const
     {
-        return -floorDiv(-a, b);
+        return {camX, camY, camX + viewWidth(), camY + viewHeight()};
     }
 
-    int effectiveThickness() const
+    [[nodiscard]] int effectiveThickness() const
     {
         return std::max(1, static_cast<int>(std::lround(thickness * zoom)));
     }
 
-    int toWorldX(int sx) const
+    [[nodiscard]] int toWorldX(int sx) const
     {
         return static_cast<int>(std::floor(camX + sx / zoom));
     }
 
-    int toWorldY(int sy) const
+    [[nodiscard]] int toWorldY(int sy) const
     {
         return static_cast<int>(std::floor(camY + (sy - MENU_HEIGHT) / zoom));
     }
 
     void clampCamera()
     {
-        float viewW = (float)SCREEN_WIDTH / zoom;
-        float viewH = (float)(SCREEN_HEIGHT - MENU_HEIGHT) / zoom;
-        camX = std::clamp(camX, (float)canvas.left() - viewW, (float)canvas.right());
-        camY = std::clamp(camY, (float)canvas.top() - viewH, (float)canvas.bottom());
+        camX = std::clamp(camX, static_cast<float>(canvas.left()) - viewWidth(),
+                          static_cast<float>(canvas.right()));
+        camY = std::clamp(camY, static_cast<float>(canvas.top()) - viewHeight(),
+                          static_cast<float>(canvas.bottom()));
     }
 
-    // Drawing tools (paint_draw.cpp) ----------------------------------------
+    [[nodiscard]] static SDL_Rect toolSlotRect(const ToolSlot &slot)
+    {
+        return {slot.col * TOOL_WIDTH, slot.row * ROW_HEIGHT, TOOL_WIDTH, ROW_HEIGHT};
+    }
+
+    [[nodiscard]] static SDL_Rect menuColorRect(int i)
+    {
+        return {MENU_COLOR_LEFT + (i % MENU_COLORS_PER_ROW) * TOOL_WIDTH,
+                (i / MENU_COLORS_PER_ROW) * ROW_HEIGHT, TOOL_WIDTH, ROW_HEIGHT};
+    }
+
+    // Thumb length / travel range for a scroll bar over worldLen with trackLen.
+    [[nodiscard]] static ScrollMetrics scrollMetrics(float worldLen, float viewLen,
+                                                     float trackLen)
+    {
+        float thumbLen = std::max(static_cast<float>(MIN_THUMB_LEN), trackLen * viewLen / worldLen);
+        return {thumbLen, worldLen - viewLen};
+    }
+
+    [[nodiscard]] float verticalTrackLen() const
+    {
+        return static_cast<float>(SCREEN_HEIGHT - MENU_HEIGHT - SCROLLBAR_W);
+    }
+
+    [[nodiscard]] float horizontalTrackLen() const
+    {
+        return static_cast<float>(SCREEN_WIDTH - SCROLLBAR_W);
+    }
+
+    // Dispatch to line/circle/rectangle based on the current shape tool.
+    void drawShape(int x1, int y1, int x2, int y2);
+
+    // Drawing tools (draw.cpp) ----------------------------------------------
     void drawPoint(int wx, int wy);
     void drawLine(int x1, int y1, int x2, int y2);
     void drawCircle(int cx, int cy, int x, int y);
@@ -118,33 +179,34 @@ private:
     void saveCanvasBMP();
     void ensureCanvasCoversView();
 
-    // Rendering (paint_render.cpp) ------------------------------------------
+    // Rendering (render.cpp) --------------------------------------------------
+    void setDrawColor(uint8_t grey);
     void drawCanvasView();
     void drawGrid();
-    SDL_Rect canvasScreenRect() const;
+    [[nodiscard]] SDL_Rect canvasScreenRect() const;
     void drawStatusStrip();
     void drawPreview();
     void drawFlashOverlays();
     void drawScrollBars();
     void drawScreen();
 
-    // Help popup (paint_app.cpp) ---------------------------------------------
+    // Help popup (app.cpp) -----------------------------------------------------
     void buildHelpTexture();
     void drawHelpPopup();
     void toggleHelp() { helpOpen = !helpOpen; }
     void closeHelp() { helpOpen = false; }
 
-    // Input (paint_input.cpp) -----------------------------------------------
+    // Input (input.cpp) ----------------------------------------------------------
     void zoomAt(int mx, int my, float factor);
-    void beginScrollDrag(int axis, int mx, int my);
+    void beginScrollDrag(ScrollDrag axis, int mx, int my);
     void handleKey(const SDL_KeyboardEvent &key);
     void handleInput();
     void setCursor(int type);
     void setCursorForTool();
     void handleMenuClick(int mx, int my);
 
-    // Lifecycle (paint_app.cpp) ---------------------------------------------
-    SDL_Texture *buildMenuTexture();
+    // Lifecycle (app.cpp) ---------------------------------------------------------
+    [[nodiscard]] SDL_Texture *buildMenuTexture();
     void clearScreen();
 
 public:

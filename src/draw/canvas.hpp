@@ -31,11 +31,9 @@ public:
     int bottom() const { return bounds.bottom; }
     int originX() const { return originX_; }
     int originY() const { return originY_; }
-    const WorldRect &worldBounds() const { return bounds; }
 
     uint8_t *pixelData() { return cpu.data(); }
     const uint8_t *pixelData() const { return cpu.data(); }
-    int pitch() const { return gridMax * 4; }
 
     // Operations ------------------------------------------------------------
     void clear();

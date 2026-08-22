@@ -1,3 +1,4 @@
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
@@ -8,6 +9,17 @@
 
 namespace paint
 {
+
+namespace
+{
+
+void putU16(uint8_t *dst, uint16_t v) { std::memcpy(dst, &v, sizeof(v)); }
+
+void putU32(uint8_t *dst, uint32_t v) { std::memcpy(dst, &v, sizeof(v)); }
+
+constexpr uint32_t BMP_HEADER_SIZE = 54;
+
+} // namespace
 
 bool writeBMPFile(const std::string &name, const uint8_t *rgba, int w, int h)
 {
@@ -22,41 +34,34 @@ bool writeBMPFile(const std::string &name, const uint8_t *rgba, int w, int h)
     }
 
     int rowSize = (w * 3 + 3) & ~3;
-    int imageSize = rowSize * h;
-    uint8_t header[54] = {0};
+    uint32_t imageSize = static_cast<uint32_t>(rowSize * h);
+    std::array<uint8_t, BMP_HEADER_SIZE> header{};
     header[0] = 'B';
     header[1] = 'M';
-    uint32_t fsize = 54 + imageSize;
-    std::memcpy(header + 2, &fsize, 4);
-    uint32_t dataOff = 54;
-    std::memcpy(header + 10, &dataOff, 4);
-    uint32_t ih = 40;
-    std::memcpy(header + 14, &ih, 4);
-    int32_t iw = w, ihd = h;
-    std::memcpy(header + 18, &iw, 4);
-    std::memcpy(header + 22, &ihd, 4);
-    uint16_t planes = 1;
-    std::memcpy(header + 26, &planes, 2);
-    uint16_t bpp = 24;
-    std::memcpy(header + 28, &bpp, 2);
-    uint32_t comp = 0;
-    std::memcpy(header + 30, &comp, 4);
-    std::memcpy(header + 34, &imageSize, 4);
-    out.write((char *)header, 54);
+    putU32(header.data() + 2, imageSize + BMP_HEADER_SIZE);      // file size
+    putU32(header.data() + 10, BMP_HEADER_SIZE);                 // pixel data offset
+    putU32(header.data() + 14, 40);                              // BITMAPINFOHEADER size
+    putU32(header.data() + 18, static_cast<uint32_t>(w));        // width
+    putU32(header.data() + 22, static_cast<uint32_t>(h));        // height
+    putU16(header.data() + 26, 1);                               // color planes
+    putU16(header.data() + 28, 24);                              // bits per pixel
+    putU32(header.data() + 34, imageSize);                       // raw image size
+    out.write(reinterpret_cast<const char *>(header.data()),
+              static_cast<std::streamsize>(header.size()));
 
     std::vector<uint8_t> row(rowSize);
     for (int y = h - 1; y >= 0; --y)
     {
-        const uint8_t *src = rgba + (size_t)y * w * 4;
+        const uint8_t *src = rgba + static_cast<size_t>(y) * w * 4;
         for (int x = 0; x < w; ++x)
         {
             row[x * 3 + 0] = src[x * 4 + 2]; // B
             row[x * 3 + 1] = src[x * 4 + 1]; // G
             row[x * 3 + 2] = src[x * 4 + 0]; // R
         }
-        out.write((char *)row.data(), rowSize);
+        out.write(reinterpret_cast<const char *>(row.data()),
+                  static_cast<std::streamsize>(row.size()));
     }
-    out.close();
     return true;
 }
 
