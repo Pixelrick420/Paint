@@ -56,6 +56,8 @@ PaintApp::PaintApp()
 
     canvasTex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888,
                                   SDL_TEXTUREACCESS_STREAMING, gridMax, gridMax);
+    if (canvasTex != nullptr)
+        SDL_SetTextureScaleMode(canvasTex, SDL_SCALEMODE_NEAREST); // crisp pixels when zoomed
     if (canvasTex == nullptr)
     {
         std::cerr << "SDL_CreateTexture (canvas) failed: " << SDL_GetError() << std::endl;
