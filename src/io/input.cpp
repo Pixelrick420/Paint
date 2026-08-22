@@ -58,6 +58,11 @@ void PaintApp::beginScrollDrag(ScrollDrag axis, int mx, int my)
 
 void PaintApp::handleKey(const SDL_KeyboardEvent &key)
 {
+    {
+        std::lock_guard<std::mutex> lock(saveDialogMutex);
+        if (saveDialogOpen)
+            return; // a save dialog is up: keys belong to it, not to shortcuts
+    }
     if (key.mod & SDL_KMOD_CTRL)
     {
         switch (key.key)

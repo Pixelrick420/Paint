@@ -220,8 +220,16 @@ void PaintApp::smokeTest()
 
 void PaintApp::openSaveDialog()
 {
+    {
+        std::lock_guard<std::mutex> lock(saveDialogMutex);
+        if (saveDialogOpen)
+            return;
+        saveDialogOpen = true;
+    }
     static const SDL_DialogFileFilter bmpFilter[] = {{"Bitmap image", "bmp"}};
-    SDL_ShowSaveFileDialog(&PaintApp::onSaveDialogDone, this, window, bmpFilter, 1, nullptr);
+    // No parent window: parented (modal/transient) dialogs can open without
+    // keyboard activation on tiling Wayland compositors; unparented ones do not.
+    SDL_ShowSaveFileDialog(&PaintApp::onSaveDialogDone, this, nullptr, bmpFilter, 1, nullptr);
 }
 
 void SDLCALL PaintApp::onSaveDialogDone(void *userdata, const char *const *filelist,
@@ -230,23 +238,36 @@ void SDLCALL PaintApp::onSaveDialogDone(void *userdata, const char *const *filel
     (void)filter;
     auto *app = static_cast<PaintApp *>(userdata);
     std::string chosen;
+    std::string error;
     if (filelist != nullptr && filelist[0] != nullptr)
         chosen = filelist[0];
+    else if (SDL_GetError()[0] != '\0') // distinguishes failure from plain cancel
+        error = SDL_GetError();
     std::lock_guard<std::mutex> lock(app->saveDialogMutex);
     app->saveDialogResult = std::move(chosen);
+    app->saveDialogError = std::move(error);
     app->saveDialogDone = true;
 }
 
 void PaintApp::processSaveDialog()
 {
     std::string path;
+    std::string error;
     {
         std::lock_guard<std::mutex> lock(saveDialogMutex);
         if (!saveDialogDone)
             return;
         saveDialogDone = false;
+        saveDialogOpen = false;
         path = std::move(saveDialogResult);
+        error = std::move(saveDialogError);
         saveDialogResult.clear();
+        saveDialogError.clear();
+    }
+    if (!error.empty())
+    {
+        std::cerr << "Save dialog failed: " << error << std::endl;
+        return;
     }
     if (path.empty()) // cancelled or no file picked: abort quietly
         return;

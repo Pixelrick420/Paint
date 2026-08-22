@@ -100,7 +100,9 @@ private:
     // Save-dialog results arrive on a callback thread; the main loop consumes them.
     std::mutex saveDialogMutex;
     std::string saveDialogResult; // chosen path, empty when the dialog was cancelled
+    std::string saveDialogError;  // non-empty when the dialog system itself failed
     bool saveDialogDone{false};
+    bool saveDialogOpen{false};
 
     Canvas canvas;
 
