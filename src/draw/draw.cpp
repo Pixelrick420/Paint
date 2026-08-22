@@ -1,4 +1,4 @@
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #include <algorithm>
 #include <cmath>
@@ -18,7 +18,7 @@ void PaintApp::drawPoint(int wx, int wy)
         SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, 160);
         int sx = static_cast<int>(std::lround((wx - camX) * zoom));
         int sy = MENU_HEIGHT + static_cast<int>(std::lround((wy - camY) * zoom));
-        SDL_RenderDrawPoint(renderer, sx, sy);
+        SDL_RenderPoint(renderer, sx, sy);
         return;
     }
     if (wx >= canvas.left() && wx < canvas.right() && wy >= canvas.top() && wy < canvas.bottom())

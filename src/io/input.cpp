@@ -1,4 +1,4 @@
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #include <algorithm>
 
@@ -58,14 +58,14 @@ void PaintApp::beginScrollDrag(ScrollDrag axis, int mx, int my)
 
 void PaintApp::handleKey(const SDL_KeyboardEvent &key)
 {
-    if (key.keysym.mod & KMOD_CTRL)
+    if (key.mod & SDL_KMOD_CTRL)
     {
-        switch (key.keysym.sym)
+        switch (key.key)
         {
-        case SDLK_s:
+        case SDLK_S:
             saveCanvasBMP();
             break;
-        case SDLK_g:
+        case SDLK_G:
             showGrid = !showGrid;
             break;
         case SDLK_SLASH:
@@ -78,23 +78,23 @@ void PaintApp::handleKey(const SDL_KeyboardEvent &key)
         return;
     }
 
-    if (key.keysym.sym >= SDLK_1 && key.keysym.sym <= SDLK_7)
-        color = colors[key.keysym.sym - SDLK_1];
+    if (key.key >= SDLK_1 && key.key <= SDLK_7)
+        color = colors[key.key - SDLK_1];
 
-    switch (key.keysym.sym)
+    switch (key.key)
     {
-    case SDLK_c:
+    case SDLK_C:
         clearScreen();
         break;
-    case SDLK_z:
+    case SDLK_Z:
         thickness = std::clamp(thickness + 1, 1, MAX_LINE_THICKNESS);
         setCursorForTool();
         break;
-    case SDLK_x:
+    case SDLK_X:
         thickness = std::clamp(thickness - 1, 1, MAX_LINE_THICKNESS);
         setCursorForTool();
         break;
-    case SDLK_f:
+    case SDLK_F:
         tool = Tool::Fill;
         setCursorForTool();
         break;
@@ -134,11 +134,11 @@ void PaintApp::handleInput()
     {
         switch (e.type)
         {
-        case SDL_QUIT:
+        case SDL_EVENT_QUIT:
             quit = true;
             break;
 
-        case SDL_MOUSEBUTTONDOWN:
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
             switch (e.button.button)
             {
             case SDL_BUTTON_LEFT:
@@ -217,7 +217,7 @@ void PaintApp::handleInput()
             }
             break;
 
-        case SDL_MOUSEBUTTONUP:
+        case SDL_EVENT_MOUSE_BUTTON_UP:
             if (e.button.button == SDL_BUTTON_LEFT)
             {
                 drawing = false;
@@ -227,7 +227,7 @@ void PaintApp::handleInput()
                 panning = false;
             break;
 
-        case SDL_MOUSEMOTION:
+        case SDL_EVENT_MOUSE_MOTION:
             lastMouseX = e.motion.x;
             lastMouseY = e.motion.y;
             if (scrollDrag != ScrollDrag::None)
@@ -270,13 +270,13 @@ void PaintApp::handleInput()
             }
             break;
 
-        case SDL_MOUSEWHEEL:
-            if (SDL_GetModState() & KMOD_CTRL)
+        case SDL_EVENT_MOUSE_WHEEL:
+            if (SDL_GetModState() & SDL_KMOD_CTRL)
             {
                 zoomAt(lastMouseX, lastMouseY,
                        e.wheel.y > 0 ? 1.0f / ZOOM_STEP : ZOOM_STEP);
             }
-            else if (SDL_GetModState() & KMOD_SHIFT)
+            else if (SDL_GetModState() & SDL_KMOD_SHIFT)
             {
                 camX -= e.wheel.y * SCROLL_PAN / zoom;
                 clampCamera();
@@ -290,7 +290,7 @@ void PaintApp::handleInput()
             }
             break;
 
-        case SDL_KEYDOWN:
+        case SDL_EVENT_KEY_DOWN:
             handleKey(e.key);
             break;
         }
@@ -319,6 +319,11 @@ void PaintApp::setCursor(int type)
         hotspotCenter = true;
         break;
     default:
+        if (cursor != nullptr)
+        {
+            SDL_DestroyCursor(cursor);
+            cursor = nullptr;
+        }
         SDL_SetCursor(SDL_GetDefaultCursor());
         return;
     }
@@ -332,11 +337,10 @@ void PaintApp::setCursor(int type)
     SurfacePtr scaled;
     if (size != icon->w || size != icon->h)
     {
-        SurfacePtr conv{SDL_ConvertSurfaceFormat(icon.get(), SDL_PIXELFORMAT_ARGB8888, 0)};
+        SurfacePtr conv{SDL_ConvertSurface(icon.get(), SDL_PIXELFORMAT_ARGB8888)};
         if (conv != nullptr)
         {
-            scaled.reset(SDL_CreateRGBSurfaceWithFormat(
-                0, size, size, 32, SDL_PIXELFORMAT_ARGB8888));
+            scaled.reset(SDL_CreateSurface(size, size, SDL_PIXELFORMAT_ARGB8888));
             if (scaled != nullptr)
             {
                 for (int y = 0; y < size; ++y)
@@ -373,9 +377,13 @@ void PaintApp::setCursor(int type)
         hotY = cursorSurf->h - 1;
     }
 
-    SDL_Cursor *cursor = SDL_CreateColorCursor(cursorSurf, hotX, hotY);
+    SDL_Cursor *next = SDL_CreateColorCursor(cursorSurf, hotX, hotY);
+    if (next == nullptr)
+        return;
     if (cursor != nullptr)
-        SDL_SetCursor(cursor);
+        SDL_DestroyCursor(cursor);
+    cursor = next;
+    SDL_SetCursor(cursor);
 }
 
 void PaintApp::setCursorForTool()

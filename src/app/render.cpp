@@ -1,4 +1,4 @@
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 #include <algorithm>
 #include <cmath>
@@ -17,13 +17,13 @@ class ScopedClip
 public:
     ScopedClip(SDL_Renderer *ren, const SDL_Rect &rect) : renderer(ren)
     {
-        hadClip = SDL_RenderIsClipEnabled(ren);
+        hadClip = SDL_RenderClipEnabled(ren);
         if (hadClip)
-            SDL_RenderGetClipRect(ren, &previous);
-        SDL_RenderSetClipRect(ren, &rect);
+            SDL_GetRenderClipRect(ren, &previous);
+        SDL_SetRenderClipRect(ren, &rect);
     }
 
-    ~ScopedClip() { SDL_RenderSetClipRect(renderer, hadClip ? &previous : nullptr); }
+    ~ScopedClip() { SDL_SetRenderClipRect(renderer, hadClip ? &previous : nullptr); }
 
     ScopedClip(const ScopedClip &) = delete;
     ScopedClip &operator=(const ScopedClip &) = delete;
@@ -33,6 +33,24 @@ private:
     SDL_Rect previous{0, 0, 0, 0};
     bool hadClip = false;
 };
+
+// Integer-rect shims for the float-only render API.
+void fillRect(SDL_Renderer *ren, const SDL_Rect &r)
+{
+    SDL_FRect f = {static_cast<float>(r.x), static_cast<float>(r.y),
+                   static_cast<float>(r.w), static_cast<float>(r.h)};
+    SDL_RenderFillRect(ren, &f);
+}
+
+void drawTexture(SDL_Renderer *ren, SDL_Texture *tex, const SDL_Rect &src,
+                 const SDL_Rect &dst)
+{
+    SDL_FRect fs = {static_cast<float>(src.x), static_cast<float>(src.y),
+                    static_cast<float>(src.w), static_cast<float>(src.h)};
+    SDL_FRect fd = {static_cast<float>(dst.x), static_cast<float>(dst.y),
+                    static_cast<float>(dst.w), static_cast<float>(dst.h)};
+    SDL_RenderTexture(ren, tex, src.w == 0 ? nullptr : &fs, &fd);
+}
 
 // Grid line color by cell index tier.
 SDL_Color gridLineColor(int idx)
@@ -50,7 +68,7 @@ void PaintApp::drawCanvasView()
 {
     setDrawColor(CANVAS_BG);
     SDL_Rect area = {0, MENU_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT - MENU_HEIGHT};
-    SDL_RenderFillRect(renderer, &area);
+    fillRect(renderer, area);
 
     const ViewRect view = viewRect();
 
@@ -98,7 +116,7 @@ void PaintApp::drawCanvasView()
         }
 
         if (dst.w > 0 && dst.h > 0)
-            SDL_RenderCopy(renderer, canvasTex, &texRect, &dst);
+            drawTexture(renderer, canvasTex, texRect, dst);
     }
 
     if (showGrid)
@@ -125,7 +143,7 @@ void PaintApp::drawGrid()
         SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
         int sx = static_cast<int>(std::lround((x - view.l) * zoom));
         SDL_Rect r = {sx, MENU_HEIGHT, 1, SCREEN_HEIGHT - MENU_HEIGHT};
-        SDL_RenderFillRect(renderer, &r);
+        fillRect(renderer, r);
     }
     for (int y = floorDiv(static_cast<int>(std::floor(view.t)), step) * step;
          y < static_cast<int>(std::ceil(view.b)); y += step)
@@ -134,7 +152,7 @@ void PaintApp::drawGrid()
         SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
         int sy = MENU_HEIGHT + static_cast<int>(std::lround((y - view.t) * zoom));
         SDL_Rect r = {0, sy, SCREEN_WIDTH, 1};
-        SDL_RenderFillRect(renderer, &r);
+        fillRect(renderer, r);
     }
 }
 
@@ -168,11 +186,11 @@ void PaintApp::drawStatusStrip()
 {
     setDrawColor(STATUS_BG.r);
     SDL_Rect strip = {0, MENU_HEIGHT, SCREEN_WIDTH, STATUS_STRIP_H};
-    SDL_RenderFillRect(renderer, &strip);
+    fillRect(renderer, strip);
 
     setDrawColor(STATUS_EDGE.r);
     SDL_Rect menuLine = {0, MENU_HEIGHT - 1, SCREEN_WIDTH, 1};
-    SDL_RenderFillRect(renderer, &menuLine);
+    fillRect(renderer, menuLine);
 
     int eff = effectiveThickness();
     int len = std::clamp(THICKNESS_BAR_MIN_LEN + eff * THICKNESS_BAR_SCALE,
@@ -180,11 +198,11 @@ void PaintApp::drawStatusStrip()
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, 255);
     SDL_Rect bar = {THICKNESS_BAR_X, MENU_HEIGHT + STATUS_STRIP_H / 2 - THICKNESS_BAR_H / 2,
                     len, THICKNESS_BAR_H};
-    SDL_RenderFillRect(renderer, &bar);
+    fillRect(renderer, bar);
 
     setDrawColor(STATUS_SEP.r);
     SDL_Rect sep = {0, MENU_HEIGHT + STATUS_STRIP_H - 2, SCREEN_WIDTH, 2};
-    SDL_RenderFillRect(renderer, &sep);
+    fillRect(renderer, sep);
 }
 
 void PaintApp::drawPreview()
@@ -214,7 +232,7 @@ void PaintApp::drawFlashOverlays()
     SDL_SetRenderDrawColor(renderer, FLASH_BG.r, FLASH_BG.g, FLASH_BG.b, FLASH_ALPHA);
     SDL_Rect r = {SCREEN_WIDTH - SAVE_FLASH_MARGIN_R, MENU_HEIGHT + SAVE_FLASH_MARGIN_T,
                   SAVE_FLASH_W, SAVE_FLASH_H};
-    SDL_RenderFillRect(renderer, &r);
+    fillRect(renderer, r);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 }
 
@@ -226,12 +244,12 @@ void PaintApp::drawScrollBars()
     setDrawColor(SCROLL_TRACK.r);
     SDL_Rect vTrack = {SCREEN_WIDTH - SCROLLBAR_W, MENU_HEIGHT, SCROLLBAR_W,
                        static_cast<int>(trackLenV)};
-    SDL_RenderFillRect(renderer, &vTrack);
+    fillRect(renderer, vTrack);
     SDL_Rect hTrack = {0, SCREEN_HEIGHT - SCROLLBAR_W, static_cast<int>(trackLenH), SCROLLBAR_W};
-    SDL_RenderFillRect(renderer, &hTrack);
+    fillRect(renderer, hTrack);
     SDL_Rect corner = {SCREEN_WIDTH - SCROLLBAR_W, SCREEN_HEIGHT - SCROLLBAR_W,
                        SCROLLBAR_W, SCROLLBAR_W};
-    SDL_RenderFillRect(renderer, &corner);
+    fillRect(renderer, corner);
 
     setDrawColor(SCROLL_THUMB.r);
     if (canvas.height() > viewHeight())
@@ -242,7 +260,7 @@ void PaintApp::drawScrollBars()
         float ty = MENU_HEIGHT + frac * (trackLenV - m.thumbLen);
         SDL_Rect vThumb = {SCREEN_WIDTH - SCROLLBAR_W, static_cast<int>(ty),
                            SCROLLBAR_W, static_cast<int>(m.thumbLen)};
-        SDL_RenderFillRect(renderer, &vThumb);
+        fillRect(renderer, vThumb);
     }
 
     if (canvas.width() > viewWidth())
@@ -253,7 +271,7 @@ void PaintApp::drawScrollBars()
         float tx = frac * (trackLenH - m.thumbLen);
         SDL_Rect hThumb = {static_cast<int>(tx), SCREEN_HEIGHT - SCROLLBAR_W,
                            static_cast<int>(m.thumbLen), SCROLLBAR_W};
-        SDL_RenderFillRect(renderer, &hThumb);
+        fillRect(renderer, hThumb);
     }
 }
 
@@ -284,7 +302,7 @@ void PaintApp::drawScreen()
     if (menuTex != nullptr)
     {
         SDL_Rect menuDst = {0, 0, SCREEN_WIDTH, MENU_HEIGHT};
-        SDL_RenderCopy(renderer, menuTex, nullptr, &menuDst);
+        drawTexture(renderer, menuTex, {}, menuDst);
     }
     drawStatusStrip();
     drawPreview();

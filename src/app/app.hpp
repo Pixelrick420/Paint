@@ -1,8 +1,8 @@
 #pragma once
 
-#include <SDL2/SDL.h>
-#if __has_include(<SDL2/SDL_ttf.h>)
-#include <SDL2/SDL_ttf.h>
+#include <SDL3/SDL.h>
+#if __has_include(<SDL3_ttf/SDL_ttf.h>)
+#include <SDL3_ttf/SDL_ttf.h>
 #define HAS_SDL_TTF 1
 #endif
 
@@ -23,7 +23,7 @@ namespace paint
 // Owns an SDL_Surface; frees it on scope exit.
 struct SDLSurfaceDeleter
 {
-    void operator()(SDL_Surface *surface) const { SDL_FreeSurface(surface); }
+    void operator()(SDL_Surface *surface) const { SDL_DestroySurface(surface); }
 };
 
 using SurfacePtr = std::unique_ptr<SDL_Surface, SDLSurfaceDeleter>;
@@ -78,6 +78,7 @@ private:
     float camX{0}, camY{0}, zoom{1.0f};
 
     int lastMouseX{0}, lastMouseY{0};
+    SDL_Cursor *cursor{nullptr}; // app-created; destroyed on replace/exit
     int lastWorldX{0}, lastWorldY{0};
     bool panning{false};
     int panStartMX{0}, panStartMY{0};
