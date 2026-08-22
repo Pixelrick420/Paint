@@ -122,14 +122,32 @@ void PaintApp::ensureCanvasCoversView()
         canvas.expandBottom(needB - canvas.bottom());
 }
 
+bool PaintApp::writeTo(const std::string &path)
+{
+    int w = canvas.width();
+    int h = canvas.height();
+    if (w <= 0 || h <= 0)
+        return false;
+
+    canvas.copyBoundsTo(fillBuf);
+
+    if (!writeBMPFile(path.c_str(), fillBuf.data(), w, h))
+    {
+        std::cerr << "Save failed: " << path << std::endl;
+        return false;
+    }
+
+    std::cout << "Saved " << path << " (" << w << "x" << h << ")" << std::endl;
+    saveFlashUntil = SDL_GetTicks() + SAVE_FLASH_MS;
+    return true;
+}
+
 void PaintApp::saveCanvasBMP()
 {
     int w = canvas.width();
     int h = canvas.height();
     if (w <= 0 || h <= 0)
         return;
-
-    canvas.copyBoundsTo(fillBuf);
 
     std::time_t t = std::time(nullptr);
     std::tm tm{};
@@ -139,14 +157,7 @@ void PaintApp::saveCanvasBMP()
                   tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
                   tm.tm_hour, tm.tm_min, tm.tm_sec);
 
-    if (!writeBMPFile(name, fillBuf.data(), w, h))
-    {
-        std::cerr << "Save failed: " << name << std::endl;
-        return;
-    }
-
-    std::cout << "Saved " << name << " (" << w << "x" << h << ")" << std::endl;
-    saveFlashUntil = SDL_GetTicks() + SAVE_FLASH_MS;
+    writeTo(name);
 }
 
 }

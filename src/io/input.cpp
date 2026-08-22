@@ -63,7 +63,7 @@ void PaintApp::handleKey(const SDL_KeyboardEvent &key)
         switch (key.key)
         {
         case SDLK_S:
-            saveCanvasBMP();
+            openSaveDialog();
             break;
         case SDLK_G:
             showGrid = !showGrid;
@@ -422,7 +422,6 @@ void PaintApp::handleMenuClick(int mx, int my)
         return;
     }
 
-    // Color block, right side.
     for (int i = 0; i < NUM_COLORS; ++i)
     {
         SDL_Rect r = menuColorRect(i);

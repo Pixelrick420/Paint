@@ -52,7 +52,6 @@ void drawTexture(SDL_Renderer *ren, SDL_Texture *tex, const SDL_Rect &src,
     SDL_RenderTexture(ren, tex, src.w == 0 ? nullptr : &fs, &fd);
 }
 
-// Grid line color by cell index tier.
 SDL_Color gridLineColor(int idx)
 {
     if (idx % 10 == 0)
@@ -295,6 +294,7 @@ void PaintApp::drawShape(int x1, int y1, int x2, int y2)
 
 void PaintApp::drawScreen()
 {
+    processSaveDialog();
     flushPoints();
     setDrawColor(CANVAS_BG);
     SDL_RenderClear(renderer);

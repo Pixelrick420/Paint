@@ -12,6 +12,8 @@
 #include <string_view>
 #include <vector>
 
+#include <unistd.h>
+
 #include "app.hpp"
 
 namespace paint
@@ -133,7 +135,7 @@ SDL_Texture *PaintApp::buildMenuTexture()
     SurfacePtr surf{SDL_CreateSurface(SCREEN_WIDTH, MENU_HEIGHT, SDL_PIXELFORMAT_ARGB8888)};
     if (surf == nullptr)
         return nullptr;
-    SDL_memset(surf->pixels, 255, static_cast<size_t>(surf->pitch) * surf->h); // white
+    SDL_memset(surf->pixels, 255, static_cast<size_t>(surf->pitch) * surf->h);
 
     for (const ToolSlot &slot : toolSlots)
     {
@@ -212,6 +214,64 @@ void PaintApp::smokeTest()
     saveCanvasBMP();
     drawScreen();
     SDL_Delay(100);
+}
+
+void PaintApp::openSaveDialog()
+{
+    static const SDL_DialogFileFilter bmpFilter[] = {{"Bitmap image", "bmp"}};
+    SDL_ShowSaveFileDialog(&PaintApp::onSaveDialogDone, this, window, bmpFilter, 1, nullptr);
+}
+
+void SDLCALL PaintApp::onSaveDialogDone(void *userdata, const char *const *filelist,
+                                        int filter)
+{
+    (void)filter;
+    auto *app = static_cast<PaintApp *>(userdata);
+    std::string chosen;
+    if (filelist != nullptr && filelist[0] != nullptr)
+        chosen = filelist[0];
+    std::lock_guard<std::mutex> lock(app->saveDialogMutex);
+    app->saveDialogResult = std::move(chosen);
+    app->saveDialogDone = true;
+}
+
+void PaintApp::processSaveDialog()
+{
+    std::string path;
+    {
+        std::lock_guard<std::mutex> lock(saveDialogMutex);
+        if (!saveDialogDone)
+            return;
+        saveDialogDone = false;
+        path = std::move(saveDialogResult);
+        saveDialogResult.clear();
+    }
+    if (path.empty()) // cancelled or no file picked: abort quietly
+        return;
+
+    if (access(path.c_str(), F_OK) == 0 && !confirmOverwrite(path))
+        return;
+    writeTo(path);
+}
+
+bool PaintApp::confirmOverwrite(const std::string &path) const
+{
+    const SDL_MessageBoxButtonData buttons[] = {
+        {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT | SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT,
+         0, "Cancel"},
+        {0, 1, "Overwrite"},
+    };
+    const SDL_MessageBoxData box{SDL_MESSAGEBOX_WARNING,
+                                 window,
+                                 "Overwrite existing file?",
+                                 path.c_str(),
+                                 2,
+                                 buttons,
+                                 nullptr};
+    int button = 0;
+    if (!SDL_ShowMessageBox(&box, &button))
+        return false;
+    return button == 1;
 }
 
 void PaintApp::buildHelpTexture()

@@ -11,6 +11,8 @@
 #include <cstdint>
 #include <deque>
 #include <memory>
+#include <mutex>
+#include <string>
 #include <vector>
 
 #include "common.hpp"
@@ -20,7 +22,6 @@
 namespace paint
 {
 
-// Owns an SDL_Surface; frees it on scope exit.
 struct SDLSurfaceDeleter
 {
     void operator()(SDL_Surface *surface) const { SDL_DestroySurface(surface); }
@@ -28,7 +29,6 @@ struct SDLSurfaceDeleter
 
 using SurfacePtr = std::unique_ptr<SDL_Surface, SDLSurfaceDeleter>;
 
-// Scroll bar drag state.
 enum class ScrollDrag
 {
     None = 0,
@@ -42,7 +42,6 @@ struct ViewRect
     float l, t, r, b;
 };
 
-// Scroll bar thumb geometry.
 struct ScrollMetrics
 {
     float thumbLen;
@@ -64,8 +63,8 @@ private:
 #endif
     SDL_Texture *helpTex{nullptr};
     SDL_Texture *helpTitleTex{nullptr};
-    SDL_Rect helpPanel{0, 0, 0, 0}; // screen coords
-    SDL_Rect helpClose{0, 0, 0, 0}; // screen coords
+    SDL_Rect helpPanel{0, 0, 0, 0};
+    SDL_Rect helpClose{0, 0, 0, 0};
     bool helpOpen{false};
 
     // Stroke points in world coords, pending texture upload.
@@ -97,6 +96,11 @@ private:
     bool previewing{false};
     SDL_Point shapeStart = {-1, -1};
     Uint32 saveFlashUntil{0};
+
+    // Save-dialog results arrive on a callback thread; the main loop consumes them.
+    std::mutex saveDialogMutex;
+    std::string saveDialogResult; // chosen path, empty when the dialog was cancelled
+    bool saveDialogDone{false};
 
     Canvas canvas;
 
@@ -146,7 +150,6 @@ private:
                 (i / MENU_COLORS_PER_ROW) * ROW_HEIGHT, TOOL_WIDTH, ROW_HEIGHT};
     }
 
-    // Thumb length and travel for the given lengths.
     [[nodiscard]] static ScrollMetrics scrollMetrics(float worldLen, float viewLen,
                                                      float trackLen)
     {
@@ -172,6 +175,12 @@ private:
     void drawRectangle(int x1, int y1, int x2, int y2);
     void flushPoints();
     void saveCanvasBMP();
+    bool writeTo(const std::string &path);
+    void openSaveDialog();
+    void processSaveDialog();
+    [[nodiscard]] bool confirmOverwrite(const std::string &path) const;
+    static void SDLCALL onSaveDialogDone(void *userdata, const char *const *filelist,
+                                         int filter);
     void ensureCanvasCoversView();
 
     void setDrawColor(uint8_t grey);

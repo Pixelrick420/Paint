@@ -23,10 +23,9 @@ struct ToolSlot {
   Tool tool;
   const char *icon;    // BMP file under assets/
   bool forceColor;     // selecting this tool forces a palette color
-  int forceColorIndex; // forced palette index
+  int forceColorIndex;
 };
 
-// Palette slot names;
 enum ColorName {
   BLACK,
   PURPLE,

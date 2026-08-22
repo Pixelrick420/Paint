@@ -1,9 +1,16 @@
+# Local agent tooling
 AGENTS.md
 .agents-md.sha256
 .dev-agent/
-frame_*.bmp
-.gitattributes
 graphify-out/
+
+# Build outputs
 *.o
+*.d
 paint
+dist/
+paint-linux-static.tar.gz
+
+# Program output images
+frame_*.bmp
 paint_*.bmp
